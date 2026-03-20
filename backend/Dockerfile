@@ -19,6 +19,10 @@ RUN pip install --no-cache-dir pymysql sqlalchemy python-jose[cryptography] pass
 # Copy backend source code
 COPY . .
 
+# Create a non-root user for security
+RUN useradd -m celeryuser && chown -R celeryuser:celeryuser /app
+USER celeryuser
+
 # Expose FastAPI port
 EXPOSE 8000
 

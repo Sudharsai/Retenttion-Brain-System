@@ -12,12 +12,14 @@ class AdminLoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     username: str
+    role: str = "admin"
 
 class UserLoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     company_id: int
     company_name: str
+    role: str = "user"
 
 def admin_login(db: Session, req: LoginRequest):
     # Special case: check for default admin if not in DB
@@ -40,22 +42,26 @@ def admin_login(db: Session, req: LoginRequest):
         raise HTTPException(status_code=401, detail="Invalid admin credentials")
         
     token = create_access_token(data={"sub": user.username, "role": "admin", "uid": user.id})
-    return {"access_token": token, "token_type": "bearer", "username": user.username}
+    return {"access_token": token, "token_type": "bearer", "username": user.username, "role": "admin"}
 
 def company_login(db: Session, req: LoginRequest):
-    user = db.query(User).filter(User.email == req.id_field, User.role == 'user').first()
+    # Unified login: Allow login with either email or username for any role
+    user = db.query(User).filter(
+        ((User.email == req.id_field) | (User.username == req.id_field))
+    ).first()
     
     if not user or not verify_password(req.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Invalid company credentials")
-        
-    if not user.company_id:
-        raise HTTPException(status_code=400, detail="User is not associated with any company")
-        
-    company = db.query(Company).filter(Company.id == user.company_id).first()
+        raise HTTPException(status_code=401, detail="Invalid credentials")
     
+    # Platform Admins don't have a company_id
+    company_name = None
+    if user.company_id:
+        company = db.query(Company).filter(Company.id == user.company_id).first()
+        company_name = company.name if company else None
+        
     token = create_access_token(data={
-        "sub": user.email, 
-        "role": "user", 
+        "sub": user.email if user.email else user.username, 
+        "role": user.role, 
         "cid": user.company_id,
         "uid": user.id
     })
@@ -63,8 +69,11 @@ def company_login(db: Session, req: LoginRequest):
     return {
         "access_token": token, 
         "token_type": "bearer", 
+        "user_id": user.id,
         "company_id": user.company_id, 
-        "company_name": company.name if company else "Unknown"
+        "company_name": company_name,
+        "username": user.username,
+        "role": user.role
     }
 
 def reset_admin_password(db: Session, admin_id: int, new_password: str):

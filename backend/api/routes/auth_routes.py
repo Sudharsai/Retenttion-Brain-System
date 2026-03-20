@@ -28,7 +28,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 
 def get_admin_user(token: str = Depends(oauth2_scheme)):
     payload = get_current_user(token)
-    if payload.get("role") != "admin":
+    if payload.get("role") not in ["admin", "super_admin"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="The user does not have enough privileges",

@@ -2,9 +2,12 @@ import os
 from fastapi import FastAPI, UploadFile, File, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from database.session import init_db
+from database.session import init_db, SessionLocal
 from api.routes import auth_routes, customer_routes, analytics_routes, admin_routes
 from celery import Celery
 from dotenv import load_dotenv
+from api.controllers.auth_controller import get_password_hash
+from models.domain import User
 
 load_dotenv()
 
@@ -17,13 +20,18 @@ celery_app = Celery("retention_worker", broker=REDIS_URL, backend=REDIS_URL)
 celery_app.conf.update(
     task_serializer="json",
     accept_content=["json"],
-    task_always_eager=False # Enable true async with Redis
+    task_always_eager=True # Force sync for zero-dependency run
 )
 
 # CORS Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://0.0.0.0:3000",
+        "http://frontend:3000" # Docker internal name
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -20,34 +20,42 @@ def init_db():
     
     db = SessionLocal()
     
-    # Check if admin already exists
-    admin = db.query(User).filter(User.username == "admin").first()
-    if admin:
-        print("Database already seeded. Skipping.")
-        db.close()
-        return
+    # 0. Clean and Seed
+    print("Pre-seeding cleanup...")
+    db.query(User).delete()
+    db.query(Company).delete()
+    db.commit()
 
     print("Seeding database...")
     
-    # 1. Create a Company
+    # 1. Create a Primary Tenant
     techcorp = Company(name="TechCorp Solutions")
     db.add(techcorp)
     db.commit()
     db.refresh(techcorp)
 
-    # 2. Create Admin (no company_id) and a Company User
-    admin_user = User(
+    # 2. Sequential User Provisioning
+    super_admin = User(
+        username="super_admin",
+        email="superadmin@retentionbrain.com",
+        password_hash=get_password_hash("super123"),
+        role="super_admin"
+    )
+    platform_admin = User(
         username="admin",
+        email="admin@retentionbrain.com",
         password_hash=get_password_hash("admin123"),
         role="admin"
     )
-    company_user = User(
+    client_user = User(
         username="demouser",
+        email="demo@techcorp.com",
         password_hash=get_password_hash("demo123"),
-        role="company_user",
+        role="user",
         company_id=techcorp.id
     )
-    db.add_all([admin_user, company_user])
+    
+    db.add_all([super_admin, platform_admin, client_user])
     db.commit()
 
     # 3. Create sample customers for TechCorp
@@ -57,7 +65,11 @@ def init_db():
         cust = Customer(
             name=name,
             email=f"{name.split()[0].lower()}@example.com",
-            company_id=techcorp.id
+            external_customer_id=f"CUST-{1000+i}",
+            company_id=techcorp.id,
+            revenue=random.uniform(100, 5000),
+            usage_score=random.uniform(0, 100),
+            transactions_count=random.randint(1, 50)
         )
         db.add(cust)
         db.commit()

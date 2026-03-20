@@ -26,10 +26,17 @@ export default function Login() {
             const result = await res.json()
             if (res.ok && result.access_token) {
                 localStorage.setItem('token', result.access_token)
-                localStorage.setItem('role', 'user')
-                localStorage.setItem('company_id', result.company_id.toString())
-                localStorage.setItem('company_name', result.company_name)
-                window.location.href = '/dashboard'
+                localStorage.setItem('role', result.role)
+                localStorage.setItem('company_id', result.company_id?.toString() || '')
+                localStorage.setItem('company_name', result.company_name || '')
+                
+                if (result.role === 'super_admin') {
+                    window.location.href = '/super-admin'
+                } else if (result.role === 'admin') {
+                    window.location.href = '/admin'
+                } else {
+                    window.location.href = '/'
+                }
             } else {
                 setError(result.detail || 'Access denied. Verify your credentials.')
             }
@@ -71,7 +78,7 @@ export default function Login() {
                                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-blue-400 transition-colors" />
                                 <input 
                                     type="text" 
-                                    placeholder="your_identifier"
+                                    placeholder="email_or_username"
                                     value={user} 
                                     onChange={e=>setUser(e.target.value)} 
                                     className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all" 
@@ -123,7 +130,7 @@ export default function Login() {
                 </div>
 
                 <div className="mt-8 text-center text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                    New Identity? <Link href="/signup" className="text-blue-400 hover:text-white transition-colors">Join the Neural Network</Link>
+                    Want to join? <Link href="/request-access" className="text-blue-400 hover:text-white transition-colors underline underline-offset-4">Request Access</Link>
                 </div>
 
                 <p className="text-center mt-8 text-[10px] font-bold text-slate-600 uppercase tracking-[0.3em]">

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, UploadFile, File
+from fastapi import APIRouter, Depends, Query, UploadFile, File, Body
 from sqlalchemy.orm import Session
 from database.session import get_db
 from api.routes.auth_routes import get_current_user
@@ -6,6 +6,7 @@ from api.controllers import customer_controller
 from workers.tasks import process_neural_dataset
 import shutil
 import os
+from typing import List
 
 router = APIRouter()
 
@@ -49,21 +50,27 @@ async def upload_dataset(
     db: Session = Depends(get_db),
     user: dict = Depends(get_current_user)
 ):
-    """
-    Step 1: Save file
-    Step 2: Trigger Celery Task
-    """
     if not file.filename.endswith(".csv"):
         return {"error": "Only CSV files are supported"}
-        
     temp_dir = "temp_uploads"
     os.makedirs(temp_dir, exist_ok=True)
     temp_path = os.path.join(temp_dir, f"{user['cid']}_{file.filename}")
-    
     with open(temp_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-        
-    # Trigger Task
     process_neural_dataset.delay(temp_path, user["cid"])
-    
     return {"success": True, "message": "Dataset upload started successfully"}
+
+@router.get("/datasets")
+def get_datasets(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    return {
+        "success": True,
+        "data": customer_controller.get_datasets(db, user["cid"])
+    }
+
+@router.delete("/datasets/{dataset_id}")
+def delete_dataset(dataset_id: int, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    return customer_controller.delete_dataset(db, user["cid"], dataset_id)
+
+@router.post("/datasets/bulk-delete")
+def bulk_delete_datasets(dataset_ids: List[int] = Body(...), db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    return customer_controller.bulk_delete_datasets(db, user["cid"], dataset_ids)

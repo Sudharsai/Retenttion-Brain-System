@@ -4,16 +4,16 @@ services:
     container_name: rb-database
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-retention_brain}
-      MYSQL_USER: ${MYSQL_USER:-rb_user}
+      MYSQL_USER: ${MYSQL_USER:-rb_admin}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-rb_password}
     ports:
       - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$${MYSQL_ROOT_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$${MYSQL_ROOT_PASSWORD:-root_password}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -21,6 +21,7 @@ services:
 
   redis:
     image: redis:alpine
+    container_name: rb-redis
     restart: always
     ports:
       - "6379:6379"
@@ -29,18 +30,14 @@ services:
     build: 
       context: ./backend
       dockerfile: Dockerfile
-    image: rb-backend:latest
     container_name: rb-backend
     restart: always
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=mysql+pymysql://${MYSQL_USER:-rb_user}:${MYSQL_PASSWORD:-rb_password}@mysql:3306/${MYSQL_DATABASE:-retention_brain}
-      - REDIS_URL=redis://redis:6379/0
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_ALGORITHM=HS256
-      - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=1440
-      - AUTO_MIGRATE=true
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///./retention_brain.db}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - JWT_SECRET=${JWT_SECRET:-supersecretjwtkey}
     depends_on:
       mysql:
         condition: service_healthy
@@ -51,11 +48,13 @@ services:
     build: 
       context: ./backend
       dockerfile: Dockerfile
-    command: celery -A main.celery_app worker --loglevel=info
+    container_name: rb-worker
+    command: celery -A main.celery_app worker --loglevel=info -P solo
     restart: always
     environment:
-      - DATABASE_URL=mysql+pymysql://${MYSQL_USER:-rb_user}:${MYSQL_PASSWORD:-rb_password}@mysql:3306/${MYSQL_DATABASE:-retention_brain}
-      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///./retention_brain.db}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - TASK_ALWAYS_EAGER=${TASK_ALWAYS_EAGER:-false}
     depends_on:
       - backend
       - redis
@@ -65,12 +64,12 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    image: rb-frontend:latest
+    container_name: rb-frontend
     restart: always
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     depends_on:
       - backend
 

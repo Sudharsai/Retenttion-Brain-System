@@ -14,15 +14,29 @@ class Company(Base):
     
     users = relationship("User", back_populates="company")
     customers = relationship("Customer", back_populates="company")
+    datasets = relationship("Dataset", back_populates="company")
+
+class Dataset(Base):
+    __tablename__ = "datasets"
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False)
+    filename = Column(String(255))
+    row_count = Column(Integer, default=0)
+    status = Column(String(50), default="processing") # 'processing', 'completed', 'failed'
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    company = relationship("Company", back_populates="datasets")
+    customers = relationship("Customer", back_populates="dataset")
 
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String(255), unique=True, nullable=False)
-    email = Column(String(255), unique=True, nullable=False)
-    password_hash = Column(String(255), nullable=False)
-    role = Column(String(50), default="user") # 'admin' or 'user'
-    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=True)
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="SET NULL"), nullable=True)
+    username = Column(String(255), unique=True, index=True)
+    email = Column(String(255), unique=True, index=True)
+    password_hash = Column(String(255))
+    role = Column(String(50), default="user") # 'super_admin', 'admin', 'user'
+    is_active = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     company = relationship("Company", back_populates="users")
@@ -31,6 +45,7 @@ class Customer(Base):
     __tablename__ = "customers"
     id = Column(Integer, primary_key=True, index=True)
     company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False)
+    dataset_id = Column(Integer, ForeignKey("datasets.id", ondelete="SET NULL"), nullable=True)
     external_customer_id = Column(String(255), nullable=False)
     name = Column(String(255))
     email = Column(String(255))
@@ -42,6 +57,7 @@ class Customer(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     company = relationship("Company", back_populates="customers")
+    dataset = relationship("Dataset", back_populates="customers")
     churn_scores = relationship("ChurnScore", back_populates="customer")
     uplift_scores = relationship("UpliftScore", back_populates="customer")
     revenue_data = relationship("RevenueData", back_populates="customer")

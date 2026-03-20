@@ -21,7 +21,7 @@ if ($portCheck.TcpTestSucceeded) {
 
 # 3. Start Backend
 Write-Host "[3/4] Starting FastAPI Backend (Background)..." -ForegroundColor Yellow
-Start-Process -NoNewWindow -FilePath "python" -ArgumentList "-m uvicorn main:app --reload --port 8000" -WorkingDirectory (Join-Path $PSScriptRoot "backend")
+Start-Process -NoNewWindow -FilePath "python" -ArgumentList "-m uvicorn main:app --reload --host 0.0.0.0 --port 8000" -WorkingDirectory (Join-Path $PSScriptRoot "backend")
 
 # 4. Start Celery Worker
 Write-Host "[4/4] Starting Celery Worker (Background CLI)..." -ForegroundColor Yellow

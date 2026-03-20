@@ -25,6 +25,7 @@ import { ChurnRiskMap } from '../components/ChurnRiskMap';
 import OperationDashboard from '../components/OperationDashboard';
 import DataControlPanel from '../components/DataControlPanel';
 import { ChurnForecastEngine, ModelTrainingCenter, CampaignControlBase } from '../components/DashboardModules';
+import BIReportView from '../components/BIReportView';
 import { API_BASE_URL } from '../lib/config';
 
 
@@ -106,8 +107,20 @@ export default function Dashboard() {
 
   const loadInitialData = useCallback(async () => {
     const token = localStorage.getItem('token')
+    const role = localStorage.getItem('role')
+    
     if (!token) {
       window.location.href = '/login'
+      return
+    }
+
+    if (role === 'super_admin') {
+      window.location.href = '/super-admin'
+      return
+    }
+
+    if (role === 'admin') {
+      window.location.href = '/admin'
       return
     }
 
@@ -169,7 +182,6 @@ export default function Dashboard() {
 
   return (
     <div className="flex h-screen bg-[#070a13] text-white font-sans overflow-hidden selection:bg-blue-500/30 relative">
-      <div className="scanline" />
       {/* Sidebar - Mission Control Navigation */}
       <aside className="w-80 glass border-r border-white/5 flex flex-col hidden xl:flex">
         <div className="p-8 border-b border-white/5 flex items-center gap-3">
@@ -445,6 +457,47 @@ export default function Dashboard() {
                   ))}
                </div>
             </div>
+          ) : activeTab === 'settings' ? (
+            <div className="px-10 py-10 space-y-10 animate-in fade-in duration-500">
+               <h2 className="text-3xl font-black mb-6 flex items-center gap-4">
+                  <Settings className="w-8 h-8 text-slate-400" />
+                  Global System Configuration
+               </h2>
+               <div className="grid grid-cols-1 xl:grid-cols-3 gap-10">
+                  <div className="xl:col-span-2">
+                     <DataControlPanel />
+                  </div>
+                  <div className="space-y-6">
+                     <div className="glass-card p-8 rounded-[2rem] border border-white/5">
+                        <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-6">Neural Parameters</h3>
+                        <div className="space-y-4">
+                           <div className="flex justify-between items-center">
+                              <span className="text-xs font-bold text-slate-300">Auto-Retrain Cycle</span>
+                              <div className="h-6 w-12 bg-blue-600 rounded-full relative"><div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full" /></div>
+                           </div>
+                           <div className="flex justify-between items-center">
+                              <span className="text-xs font-bold text-slate-300">Anomaly Detection</span>
+                              <div className="h-6 w-12 bg-blue-600 rounded-full relative"><div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full" /></div>
+                           </div>
+                           <div className="flex justify-between items-center opacity-40">
+                              <span className="text-xs font-bold text-slate-300">Edge Ingestion</span>
+                              <div className="h-6 w-12 bg-white/10 rounded-full relative"><div className="absolute left-1 top-1 w-4 h-4 bg-white/20 rounded-full" /></div>
+                           </div>
+                        </div>
+                     </div>
+                     <div className="glass-card p-8 rounded-[2rem] border border-white/5 bg-blue-500/5">
+                        <h3 className="text-xs font-black text-blue-500/50 uppercase tracking-widest mb-4">Core Identification</h3>
+                        <p className="text-[10px] font-bold text-slate-500 leading-relaxed">
+                           Current Node: <span className="text-blue-400">RETENTION_BRAIN_V2_PROD</span><br/>
+                           Authorized Identity: <span className="text-white">{localStorage.getItem('username')}</span><br/>
+                           Organization: <span className="text-white">{localStorage.getItem('company_name')}</span>
+                        </p>
+                     </div>
+                  </div>
+               </div>
+            </div>
+          ) : activeTab === 'reports' ? (
+            <BIReportView />
           ) : activeTab === 'data' ? (
             <DataControlPanel />
           ) : (

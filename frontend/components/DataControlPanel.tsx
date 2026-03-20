@@ -1,10 +1,10 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { 
   Upload, Database, Cloud, Link, 
   FileText, CheckCircle2, AlertCircle, 
-  ArrowRight, Loader2, Trash2 
+  ArrowRight, Loader2, Trash2, Check, X, Server 
 } from 'lucide-react'
 
 interface SourceCardProps {
@@ -14,6 +14,14 @@ interface SourceCardProps {
   icon: React.ReactNode;
   active: boolean;
   onClick: (id: string) => void;
+}
+
+interface Dataset {
+  id: number;
+  filename: string;
+  row_count: number;
+  status: string;
+  created_at: string;
 }
 
 function SourceCard({ id, title, desc, icon, active, onClick }: SourceCardProps) {
@@ -44,6 +52,73 @@ export default function DataControlPanel() {
   const [file, setFile] = React.useState<File | null>(null);
   const [uploading, setUploading] = React.useState<boolean>(false);
   const [status, setStatus] = React.useState<string>('');
+  
+  const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [loadingDatasets, setLoadingDatasets] = useState(false);
+
+  useEffect(() => {
+    fetchDatasets();
+  }, []);
+
+  const fetchDatasets = async () => {
+    setLoadingDatasets(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${window.location.origin.replace('3000', '8000')}/api/v1/customers/datasets`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const result = await res.json();
+      if (result.success) setDatasets(result.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingDatasets(false);
+    }
+  };
+
+  const handleDeleteDataset = async (id: number) => {
+    if (!confirm('Are you sure? This will delete all customers in this dataset.')) return;
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${window.location.origin.replace('3000', '8000')}/api/v1/customers/datasets/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) fetchDatasets();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Delete ${selectedIds.size} datasets and all their records?`)) return;
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${window.location.origin.replace('3000', '8000')}/api/v1/customers/datasets/bulk-delete`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(Array.from(selectedIds))
+      });
+      if (res.ok) {
+        setSelectedIds(new Set());
+        fetchDatasets();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const toggleSelect = (id: number) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedIds(next);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
@@ -72,6 +147,7 @@ export default function DataControlPanel() {
       const result = await res.json();
       if (res.ok && result.success) {
         setStatus('success');
+        fetchDatasets(); // Refresh list
       } else {
         setStatus('error');
       }
@@ -85,88 +161,93 @@ export default function DataControlPanel() {
 
   return (
     <div className="p-10 space-y-10 w-full max-w-[1700px] mx-auto">
-      <header>
-        <h2 className="text-3xl font-black text-white tracking-tight">Data Ingestion Hub</h2>
-        <p className="text-slate-400 font-bold text-sm mt-1 uppercase tracking-widest">Global Synchronization Control</p>
+      <header className="flex justify-between items-end">
+        <div>
+          <h2 className="text-3xl font-black text-white tracking-tight">Data Ingestion Hub</h2>
+          <p className="text-slate-400 font-bold text-sm mt-1 uppercase tracking-widest">Global Synchronization Control</p>
+        </div>
+        {selectedIds.size > 0 && (
+          <button 
+            onClick={handleBulkDelete}
+            className="px-6 py-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all flex items-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            Purge Selected ({selectedIds.size})
+          </button>
+        )}
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-        {/* Source Selection */}
         <div className="space-y-4">
-           <SourceCard 
-              id="csv"
-              active={activeSource === 'csv'} 
-              onClick={setActiveSource} 
-              icon={<FileText />} 
-              title="Dataset (CSV/Parquet)" 
-              desc="Upload local research data"
-           />
-           <SourceCard 
-              id="s3"
-              active={activeSource === 's3'} 
-              onClick={setActiveSource} 
-              icon={<Cloud />} 
-              title="AWS S3 Bucket" 
-              desc="Sync from cloud storage"
-           />
-           <SourceCard 
-              id="db"
-              active={activeSource === 'db'} 
-              onClick={setActiveSource} 
-              icon={<Database />} 
-              title="Remote Database" 
-              desc="Live PostgreSQL/MySQL link"
-           />
+           <SourceCard id="csv" active={activeSource === 'csv'} onClick={setActiveSource} icon={<FileText />} title="Dataset (CSV/Parquet)" desc="Upload local research data" />
+           <SourceCard id="s3" active={activeSource === 's3'} onClick={setActiveSource} icon={<Cloud />} title="AWS S3 Bucket" desc="Sync from cloud storage" />
+           <SourceCard id="db" active={activeSource === 'db'} onClick={setActiveSource} icon={<Database />} title="Remote Database" desc="Live PostgreSQL/MySQL link" />
         </div>
 
-        {/* Action Area */}
-        <div className="lg:col-span-2">
-           <div className="glass-card rounded-[2.5rem] p-10 border border-white/5 min-h-[500px] flex flex-col">
+        <div className="lg:col-span-2 space-y-10">
+           <div className="glass-card rounded-[2.5rem] p-10 border border-white/5 flex flex-col">
               {activeSource === 'csv' && (
                 <div className="flex-1 flex flex-col">
-                   <h3 className="text-xl font-black mb-6 flex items-center gap-3">
+                   <h3 className="text-xl font-black mb-6 flex items-center gap-3 italic">
                       <Upload className="w-6 h-6 text-blue-400" />
-                      Local Ingestion Zone
+                      Neural Ingestion Zone
                    </h3>
                    
-                   <div className="flex-1 border-2 border-dashed border-white/10 rounded-[2rem] flex flex-col items-center justify-center p-10 hover:border-blue-500/30 transition-all group">
-                      <div className="p-6 bg-blue-600/10 rounded-3xl mb-6 group-hover:scale-110 transition-transform">
+                   <div className="border-2 border-dashed border-white/10 rounded-[2rem] flex flex-col items-center justify-center p-12 hover:border-blue-500/30 transition-all group relative overflow-hidden">
+                      <div className="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/5 transition-colors" />
+                      <div className="p-6 bg-blue-600/10 rounded-3xl mb-6 group-hover:scale-110 transition-transform relative z-10">
                          <Upload className="w-12 h-12 text-blue-400" />
                       </div>
-                      <p className="text-lg font-black text-white">Drag & Drop Dataset</p>
-                      <p className="text-slate-500 font-bold text-xs mt-2 uppercase tracking-widest text-center max-w-[280px]">
-                         Max file size: 500MB. Supports .csv, .parquet formats for neural retraining.
+                      <p className="text-lg font-black text-white relative z-10">Drop Dataset Matrix</p>
+                      <p className="text-slate-500 font-bold text-xs mt-2 uppercase tracking-widest text-center max-w-[280px] relative z-10">
+                         Max file size: 500MB. Supports .csv, .parquet formats.
                       </p>
                       <input type="file" className="hidden" id="file-upload" onChange={handleFileChange} />
-                      <label htmlFor="file-upload" className="mt-8 px-8 py-3 bg-blue-600 rounded-xl font-black text-xs uppercase tracking-widest cursor-pointer shadow-[0_10px_20px_-5px_rgba(59,130,246,0.3)] hover:scale-105 active:scale-95 transition-all">
-                         Browse Local Files
+                      <label htmlFor="file-upload" className="mt-8 px-8 py-3 bg-blue-600 rounded-xl font-black text-xs uppercase tracking-widest cursor-pointer shadow-[0_10px_20px_-5px_rgba(59,130,246,0.3)] hover:scale-105 active:scale-95 transition-all relative z-10">
+                         Access Filesystem
                       </label>
                       {file && (
-                        <p className="text-sm text-white mt-4">Selected file: {file.name}</p>
+                        <p className="text-xs font-black text-blue-400 mt-6 bg-blue-400/10 px-4 py-2 rounded-full border border-blue-400/20 animate-pulse">
+                          ARMED: {file.name}
+                        </p>
                       )}
                    </div>
 
                    {status === 'success' && (
-                      <div className="mt-6 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center justify-between animate-in fade-in slide-in-from-bottom-2">
+                      <div className="mt-6 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center justify-between animate-in zoom-in-95 duration-300">
                          <div className="flex items-center gap-3">
-                            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                            <div className="p-2 bg-emerald-500 rounded-lg">
+                              <Check className="w-4 h-4 text-white" />
+                            </div>
                             <div>
                                <p className="text-xs font-black text-white uppercase tracking-wider">Sync Successful</p>
-                               <p className="text-[10px] text-slate-400 font-bold">12,402 records integrated into Neural Core.</p>
+                               <p className="text-[10px] text-slate-400 font-bold italic underline decoration-emerald-500/30">Binary records integrated into Core Neural Net.</p>
                             </div>
                          </div>
-                         <button onClick={() => setStatus('')} className="text-slate-500 hover:text-white"><Trash2 className="w-4 h-4" /></button>
+                         <button onClick={() => setStatus('')} className="p-2 hover:bg-white/5 rounded-lg transition-colors"><X className="w-4 h-4 text-slate-500" /></button>
                       </div>
                    )}
 
                    <div className="mt-8 flex justify-end">
                       <button 
-                        onClick={handleUpload}
-                        disabled={uploading || !file}
-                        className="px-8 py-4 bg-white/5 border border-white/10 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center gap-3 hover:bg-white/10 transition-all disabled:opacity-50"
+                        onClick={async () => {
+                          await handleUpload();
+                          const token = localStorage.getItem('token');
+                          setStatus('analyzing');
+                          const res = await fetch(`${window.location.origin.replace('3000', '8000')}/api/v1/analytics/retrain`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${token}` }
+                          });
+                          if(res.ok) {
+                            setStatus('success');
+                            fetchDatasets();
+                          } else setStatus('error');
+                        }}
+                        disabled={uploading || !file || status === 'analyzing'}
+                        className="px-10 py-5 bg-blue-600 rounded-2xl font-black text-sm uppercase tracking-[0.2em] flex items-center gap-4 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:grayscale shadow-[0_20px_40px_-10px_rgba(59,130,246,0.5)]"
                       >
-                         {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-5 h-5" />}
-                         {uploading ? 'Integrating...' : 'Start Retraining'}
+                         {uploading || status === 'analyzing' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Server className="w-5 h-5" />}
+                         {uploading ? 'Processing Stream...' : status === 'analyzing' ? 'Neural Training...' : 'Initiate Retrieval'}
                       </button>
                    </div>
                 </div>
@@ -174,60 +255,110 @@ export default function DataControlPanel() {
 
               {activeSource === 's3' && (
                  <div className="space-y-8">
-                    <h3 className="text-xl font-black flex items-center gap-3">
-                       <Cloud className="w-6 h-6 text-sky-400" />
-                       Cloud Bucket Link
+                    <h3 className="text-xl font-black flex items-center gap-3 text-sky-400">
+                       <Cloud className="w-6 h-6" />
+                       Cloud Sync Protocol
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                       <div className="space-y-2">
-                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Access Key ID</label>
-                          <input type="text" placeholder="AKIA..." className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold text-white focus:outline-none focus:border-sky-500/50 transition-all" />
-                       </div>
-                       <div className="space-y-2">
-                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Secret Access Key</label>
-                          <input type="password" placeholder="••••••••" className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold text-white focus:outline-none focus:border-sky-500/50 transition-all" />
-                       </div>
-                    </div>
-                    <div className="space-y-2">
-                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Bucket Endpoint</label>
-                       <input type="text" placeholder="s3://retention-brain-data/ingest/prod" className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold text-white focus:outline-none focus:border-sky-500/50 transition-all" />
-                    </div>
-                    <div className="flex justify-between items-center bg-sky-500/5 p-6 rounded-3xl border border-sky-500/10">
-                       <p className="text-[10px] font-bold text-slate-400 max-w-[300px]">Cloud synchronization will run in the background. You'll receive a notification in the Mission Control panel onceRetraining is complete.</p>
-                       <button className="px-8 py-3 bg-sky-600 rounded-xl font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all">Establish Link</button>
+                    <div className="p-20 border border-white/5 rounded-3xl bg-white/5 flex flex-col items-center justify-center text-center italic">
+                       <Cloud className="w-12 h-12 text-white/10 mb-4" />
+                       <p className="text-slate-500 font-bold text-sm tracking-widest uppercase">Cloud Integration Module Offline</p>
+                       <p className="text-slate-600 text-[10px] mt-2 mt-2">Purchase Enterprise Tier to unlock AWS S3 & Google Cloud Storage sync.</p>
                     </div>
                  </div>
               )}
 
               {activeSource === 'db' && (
                  <div className="space-y-8">
-                    <h3 className="text-xl font-black flex items-center gap-3">
-                       <Database className="w-6 h-6 text-amber-400" />
-                       Direct SQL Bridge
+                    <h3 className="text-xl font-black flex items-center gap-3 text-amber-400">
+                       <Database className="w-6 h-6" />
+                       Direct Neural Bridge
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                       <div className="md:col-span-2 space-y-2">
-                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Hostname / IP Address</label>
-                          <input type="text" placeholder="db.client-server.aws.com" className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold text-white focus:outline-none focus:border-amber-500/50 transition-all" />
-                       </div>
-                       <div className="space-y-2">
-                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Port</label>
-                          <input type="text" placeholder="5432" className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold text-white focus:outline-none focus:border-amber-500/50 transition-all" />
-                       </div>
+                    <div className="p-20 border border-white/5 rounded-3xl bg-white/5 flex flex-col items-center justify-center text-center italic">
+                       <Database className="w-12 h-12 text-white/10 mb-4" />
+                       <p className="text-slate-500 font-bold text-sm tracking-widest uppercase">SQL Connector Offline</p>
+                       <p className="text-slate-600 text-[10px] mt-2">Purchase Professional Tier to unlock live Direct SQL Sync.</p>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                       <div className="space-y-2">
-                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Database User</label>
-                          <input type="text" placeholder="readonly_agent" className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold text-white focus:outline-none focus:border-amber-500/50 transition-all" />
-                       </div>
-                       <div className="space-y-2">
-                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Access Credentials</label>
-                          <input type="password" placeholder="••••••••" className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold text-white focus:outline-none focus:border-amber-500/50 transition-all" />
-                       </div>
-                    </div>
-                    <button className="w-full py-4 bg-amber-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-amber-500 transition-all shadow-[0_10px_20px_-10px_rgba(245,158,11,0.5)]">Verify Connection & Sample Data</button>
                  </div>
               )}
+           </div>
+
+           {/* Dataset History Table */}
+           <div className="glass-card rounded-[2.5rem] border border-white/5 overflow-hidden">
+              <div className="p-8 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+                <h3 className="text-lg font-black text-white flex items-center gap-3">
+                  <Database className="w-5 h-5 text-blue-400" />
+                  Dataset History
+                </h3>
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] bg-white/5 px-4 py-1.5 rounded-full border border-white/5">
+                  Metadata Audit Log
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-white/5 bg-white/[0.01]">
+                      <th className="p-6 w-10">
+                        <div className="w-5 h-5 bg-white/5 border border-white/10 rounded pointer-events-none" />
+                      </th>
+                      <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Filename</th>
+                      <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Records</th>
+                      <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
+                      <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Uploaded At</th>
+                      <th className="p-6"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {datasets.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-20 text-center italic">
+                          <p className="text-slate-500 font-bold text-sm uppercase tracking-widest">No ingestion logs detected</p>
+                          <p className="text-[10px] text-slate-600 mt-2">Start by uploading a CSV dataset matrix above.</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      datasets.map((ds) => (
+                        <tr key={ds.id} className={`group hover:bg-white/[0.02] transition-colors ${selectedIds.has(ds.id) ? 'bg-blue-600/[0.03]' : ''}`}>
+                          <td className="p-6">
+                            <input 
+                              type="checkbox" 
+                              checked={selectedIds.has(ds.id)} 
+                              onChange={() => toggleSelect(ds.id)}
+                              className="w-5 h-5 rounded border border-white/20 bg-white/5 checked:bg-blue-600 focus:ring-0 transition-all cursor-pointer"
+                            />
+                          </td>
+                          <td className="p-6">
+                            <div className="flex items-center gap-3">
+                              <FileText className="w-4 h-4 text-blue-400/50 group-hover:text-blue-400 transition-colors" />
+                              <span className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors">{ds.filename}</span>
+                            </div>
+                          </td>
+                          <td className="p-6 text-sm font-black text-slate-400">{ds.row_count.toLocaleString()} <span className="text-[8px] text-slate-600 uppercase ml-1">Nodes</span></td>
+                          <td className="p-6">
+                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                              ds.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 
+                              ds.status === 'failed' ? 'bg-red-500/10 text-red-500 border-red-500/20' : 
+                              'bg-blue-500/10 text-blue-500 border-blue-500/20 animate-pulse'
+                            }`}>
+                              {ds.status}
+                            </span>
+                          </td>
+                          <td className="p-6 text-xs font-bold text-slate-500 tracking-tight">
+                            {new Date(ds.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td className="p-6 text-right">
+                            <button 
+                              onClick={() => handleDeleteDataset(ds.id)}
+                              className="p-2 text-slate-600 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
            </div>
         </div>
       </div>
