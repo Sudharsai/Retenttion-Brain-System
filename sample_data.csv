@@ -1,0 +1,11 @@
+customer_id,name,email,revenue,usage,transactions
+1,John Doe,john@example.com,1500,45,12
+2,Jane Smith,jane@example.com,200,5,2
+3,Bob Wilson,bob@example.com,3500,88,45
+4,Alice Brown,alice@example.com,50,2,1
+5,Charlie Davis,charlie@example.com,1200,30,10
+6,Diana Prince,diana@example.com,0,0,0
+7,Elon Musk,elon@x.com,100000,100,1000
+8,Mark Zuckerberg,mark@meta.com,50000,90,500
+9,Steve Jobs,steve@apple.com,0,0,0
+10,Bill Gates,bill@microsoft.com,80000,95,800

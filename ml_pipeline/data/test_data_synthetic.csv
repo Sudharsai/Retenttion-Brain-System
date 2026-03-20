@@ -1,0 +1,21 @@
+CustomerID,Gender,Senior Citizen,Partner,Dependents,Tenure Months,Phone Service,Multiple Lines,Internet Service,Online Security,Online Backup,Device Protection,Tech Support,Streaming TV,Streaming Movies,Contract,Paperless Billing,Payment Method,Monthly Charges,Total Charges,Churn Label
+TEST_0,Male,0,No,No,30,Yes,No,Fiber optic,No,No,No,No,No,No,Month-to-month,Yes,Electronic check,63.89260738640669,362.4499786862213,No
+TEST_1,Female,1,Yes,Yes,33,Yes,No,Fiber optic,No,No,No,No,No,No,Month-to-month,Yes,Electronic check,90.08003010546594,1742.828726832048,No
+TEST_2,Male,0,No,No,57,Yes,No,Fiber optic,No,No,No,No,No,No,Month-to-month,Yes,Electronic check,72.86486528650491,4762.119624550346,Yes
+TEST_3,Female,1,Yes,Yes,47,Yes,No,Fiber optic,No,No,No,No,No,No,Month-to-month,Yes,Electronic check,62.140817791111765,4417.94338801384,No
+TEST_4,Male,0,No,No,38,Yes,No,Fiber optic,No,No,No,No,No,No,Month-to-month,Yes,Electronic check,69.33183252688067,2609.002800613861,Yes
+TEST_5,Female,1,Yes,Yes,45,Yes,No,Fiber optic,No,No,No,No,No,No,Month-to-month,Yes,Electronic check,97.82645308872857,3226.55094703039,No
+TEST_6,Male,0,No,No,39,Yes,No,Fiber optic,No,No,No,No,No,No,Month-to-month,Yes,Electronic check,55.81017887816927,1056.086405826767,No
+TEST_7,Female,1,Yes,Yes,11,Yes,No,Fiber optic,No,No,No,No,No,No,Month-to-month,Yes,Electronic check,66.05053318750097,440.71810850778377,Yes
+TEST_8,Male,0,No,No,25,Yes,No,Fiber optic,No,No,No,No,No,No,Month-to-month,Yes,Electronic check,20.8944457307512,3458.815135216962,No
+TEST_9,Female,1,Yes,Yes,71,Yes,No,Fiber optic,No,No,No,No,No,No,Month-to-month,Yes,Electronic check,23.091699221965012,2407.628989176168,Yes
+TEST_10,Male,0,No,No,23,Yes,No,Fiber optic,No,No,No,No,No,No,Month-to-month,Yes,Electronic check,86.1136831211856,2574.6159063471273,No
+TEST_11,Female,1,Yes,Yes,3,Yes,No,Fiber optic,No,No,No,No,No,No,Month-to-month,Yes,Electronic check,24.74819521416535,2380.9535530093576,No
+TEST_12,Male,0,No,No,52,Yes,No,Fiber optic,No,No,No,No,No,No,Month-to-month,Yes,Electronic check,31.989668737674506,4852.165531595288,Yes
+TEST_13,Female,1,Yes,Yes,46,Yes,No,Fiber optic,No,No,No,No,No,No,Month-to-month,Yes,Electronic check,41.97648089975701,1713.921021841402,No
+TEST_14,Male,0,No,No,64,Yes,No,Fiber optic,No,No,No,No,No,No,Month-to-month,Yes,Electronic check,84.42905755964952,2452.2720122715405,Yes
+TEST_15,Female,1,Yes,Yes,57,Yes,No,Fiber optic,No,No,No,No,No,No,Month-to-month,Yes,Electronic check,63.82442095362713,1761.7750831022915,No
+TEST_16,Male,0,No,No,37,Yes,No,Fiber optic,No,No,No,No,No,No,Month-to-month,Yes,Electronic check,45.60539633198885,496.7326697931902,No
+TEST_17,Female,1,Yes,Yes,6,Yes,No,Fiber optic,No,No,No,No,No,No,Month-to-month,Yes,Electronic check,34.62224991376185,2115.5812073946176,Yes
+TEST_18,Male,0,No,No,32,Yes,No,Fiber optic,No,No,No,No,No,No,Month-to-month,Yes,Electronic check,51.819670670292,3916.834352498887,No
+TEST_19,Female,1,Yes,Yes,22,Yes,No,Fiber optic,No,No,No,No,No,No,Month-to-month,Yes,Electronic check,42.462419604689586,426.5224187465713,Yes

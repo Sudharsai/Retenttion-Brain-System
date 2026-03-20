@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retention Brain | Dashboard</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            /* SaaS Dark Theme Palette */
+            --bg-color: #0f1115;
+            --sidebar-bg: #16181d;
+            --card-bg: #1c1f26;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --border-color: #2d3748;
+            
+            /* Accents */
+            --accent-primary: #6366f1; /* Indigo */
+            --accent-hover: #4f46e5;
+            --accent-success: #10b981; /* Emerald */
+            --accent-warning: #f59e0b; /* Amber */
+            --accent-danger: #ef4444;  /* Red */
+            --accent-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            margin: 0;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* --- Scrollbar --- */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-color); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+
+        /* --- UI Components --- */
+        .glass-panel {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+            border-color: rgba(99, 102, 241, 0.3); /* subtle indigo glow on hover */
+        }
+
+        /* --- Sidebar --- */
+        .sidebar { 
+            height: 100vh; 
+            padding: 24px 16px; 
+            position: fixed; 
+            width: 260px; 
+            z-index: 100;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar-logo { 
+            font-size: 1.25rem; 
+            font-weight: 700; 
+            color: var(--text-primary); 
+            margin-bottom: 40px; 
+            display: flex; 
+            align-items: center; 
+            gap: 12px;
+            padding: 0 12px;
+        }
+        
+        .sidebar-logo i {
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 1.5rem;
+        }
+
+        .nav-section-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            font-weight: 600;
+            margin: 20px 0 8px 12px;
+        }
+
+        .sidebar-btn { 
+            background: transparent; 
+            border: none; 
+            color: var(--text-secondary); 
+            text-align: left; 
+            padding: 10px 14px; 
+            width: 100%; 
+            border-radius: 8px; 
+            margin-bottom: 4px; 
+            transition: all 0.2s; 
+            font-size: 0.95rem; 
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .sidebar-btn i { font-size: 1.1rem; width: 20px; text-align: center;}
+        
+        .sidebar-btn:hover { 
+            background-color: rgba(255, 255, 255, 0.05); 
+            color: var(--text-primary); 
+        }
+        
+        .sidebar-btn.active { 
+            background-color: rgba(99, 102, 241, 0.1); 
+            color: var(--accent-primary); 
+            font-weight: 600;
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            border-top: 1px solid var(--border-color);
+            padding-top: 16px;
+        }
+
+        /* --- Main Content --- */
+        .main-wrapper { 
+            margin-left: 260px; 
+            padding: 32px 40px; 
+        }
+        
+        .tab-pane { display: none; animation: fadeIn 0.3s ease; }
+        .tab-pane.active { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+        }
+
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 0;
+            color: var(--text-primary);
+        }
+
+        /* --- Metrics & Typography --- */
+        .metric-title { 
+            font-size: 0.85rem; 
+            color: var(--text-secondary); 
+            font-weight: 500;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .metric-value { 
+            font-size: 2rem; 
+            font-weight: 700; 
+            color: var(--text-primary); 
+            line-height: 1.2;
+        }
+
+        /* --- Tables --- */
+        .table-container {
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .table { 
+            color: var(--text-primary); 
+            margin-bottom: 0;
+            font-size: 0.9rem;
+        }
+        
+        .table > :not(caption) > * > * {
+            background-color: transparent;
+            border-bottom-color: var(--border-color);
+            padding: 16px 20px;
+        }
+        
+        .table thead th { 
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            border-bottom: 2px solid var(--border-color);
+            background-color: rgba(0,0,0,0.2);
+        }
+        
+        .table-hover tbody tr:hover { 
+            background-color: rgba(255, 255, 255, 0.02); 
+        }
+
+        /* --- Badges & Custom Elements --- */
+        .badge-soft-primary { background-color: rgba(99, 102, 241, 0.1); color: var(--accent-primary); }
+        .badge-soft-success { background-color: rgba(16, 185, 129, 0.1); color: var(--accent-success); }
+        .badge-soft-warning { background-color: rgba(245, 158, 11, 0.1); color: var(--accent-warning); }
+
+        .ai-reasoning-panel { 
+            background-color: rgba(0, 0, 0, 0.2); 
+            border-left: 3px solid var(--accent-primary); 
+            padding: 20px; 
+            border-radius: 0 8px 8px 0; 
+            margin: 12px 20px;
+            font-size: 0.9rem;
+        }
+
+        .progress-slim {
+            height: 6px;
+            background-color: var(--border-color);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .progress-bar-gradient { background: var(--accent-gradient); }
+
+        /* --- Buttons & Inputs --- */
+        .btn-primary-custom { 
+            background: var(--accent-gradient); 
+            border: none; 
+            color: white; 
+            font-weight: 500; 
+            padding: 8px 16px; 
+            border-radius: 6px; 
+            transition: opacity 0.2s;
+        }
+        
+        .btn-primary-custom:hover { opacity: 0.9; color: white;}
+        
+        .form-control-custom {
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 6px;
+            padding: 8px 12px;
+        }
+        .form-control-custom:focus {
+            background-color: var(--bg-color);
+            border-color: var(--accent-primary);
+            color: var(--text-primary);
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+
+        /* --- Auth Screen Styles --- */
+        #auth-screen { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background-color: var(--bg-color);
+            z-index: 9999; display: flex; justify-content: center; align-items: center; 
+        }
+        
+        .auth-box { 
+            width: 100%; max-width: 440px; padding: 40px; 
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+
+        .auth-logo { text-align: center; margin-bottom: 32px; }
+        .auth-logo i { font-size: 3rem; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .auth-logo h2 { font-weight: 700; margin-top: 16px; font-size: 1.5rem; }
+
+        .form-floating > .form-control {
+            background-color: var(--bg-color)!important;
+            border-color: var(--border-color)!important;
+            color: var(--text-primary)!important;
+        }
+        /* --- Mobile Responsiveness --- */
+        .mobile-header {
+            display: none;
+            background-color: var(--sidebar-bg);
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 90;
+            backdrop-filter: blur(4px);
+        }
+
+        @media (max-width: 992px) {
+            .sidebar {
+                left: -260px;
+                transition: left 0.3s ease;
+            }
+            .sidebar.show {
+                left: 0;
+            }
+            .main-wrapper {
+                margin-left: 0;
+                padding: 24px 20px;
+            }
+            .mobile-header {
+                display: flex;
+            }
+            .sidebar-overlay.show {
+                display: block;
+            }
+            .page-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Mobile Header -->
+    <header class="mobile-header">
+        <div class="sidebar-logo m-0 p-0">
+            <i class="fa-solid fa-brain"></i> 
+            <span>RetentionBrain</span>
+        </div>
+        <button class="btn border-0 text-white" onclick="toggleMobileSidebar()">
+            <i class="fa-solid fa-bars fs-3"></i>
+        </button>
+    </header>
+
+    <!-- Sidebar Overlay -->
+    <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleMobileSidebar()"></div>
+
+    <!-- Authentication Area -->
+    <div id="auth-screen">
+        <div class="auth-box" id="login-box">
+            <div class="auth-logo">
+                <i class="fa-solid fa-brain"></i>
+                <h2>Retention Brain</h2>
+                <p class="text-secondary small mt-2">Sign in to your dashboard</p>
+            </div>
+            <form onsubmit="handleLogin(event)">
+                <div class="form-floating mb-3">
+                    <input type="text" class="form-control" id="loginId" placeholder="Login ID" required>
+                    <label for="loginId">Email address or ID</label>
+                </div>
+                <div class="form-floating mb-4">
+                    <input type="password" class="form-control" id="loginPass" placeholder="Password" required>
+                    <label for="loginPass">Password</label>
+                </div>
+                <button type="submit" class="btn btn-primary-custom w-100 py-2" style="font-size: 1rem;">Sign in</button>
+                <div class="text-center mt-4 pt-2 border-top" style="border-color: var(--border-color)!important;">
+                    <p class="text-secondary small mb-0">Don't have an account? <a href="#" style="color: var(--accent-primary);" onclick="toggleAuth('signup')">Create one now</a></p>
+                </div>
+            </form>
+        </div>
+
+        <div class="auth-box" id="signup-box" style="display: none;">
+            <div class="auth-logo mb-4">
+                <h3 class="fw-bold m-0">Create Account</h3>
+            </div>
+            <form onsubmit="handleSignup(event)">
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <div class="form-floating">
+                            <input type="text" class="form-control" id="regName" placeholder="Name" required>
+                            <label for="regName">Full Name</label>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="form-floating">
+                            <input type="text" class="form-control" id="regCompany" placeholder="Company" required>
+                            <label for="regCompany">Company</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-floating mb-3">
+                    <input type="email" class="form-control" id="signup-email" placeholder="Company Email" required>
+                    <label for="signup-email">Work Email</label>
+                </div>
+                <div class="row g-2 mb-4">
+                    <div class="col-6">
+                        <div class="form-floating">
+                            <input type="password" class="form-control" id="regPass" placeholder="Password" required>
+                            <label for="regPass">Password</label>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="form-floating">
+                            <input type="password" class="form-control" id="regConfirm" placeholder="Confirm" required>
+                            <label for="regConfirm">Confirm</label>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary-custom w-100 py-2" id="btn-send-otp">Continue with Email</button>
+                <div class="text-center mt-4">
+                    <a href="#" class="text-secondary small text-decoration-none hover-primary" onclick="toggleAuth('login')"><i class="fa-solid fa-arrow-left me-1"></i> Back to sign in</a>
+                </div>
+            </form>
+        </div>
+
+        <div class="auth-box" id="otp-box" style="display: none;">
+            <div class="auth-logo mb-4">
+                <i class="fa-solid fa-envelope-open-text mb-3" style="font-size: 2.5rem; color: var(--accent-primary); background: none; -webkit-text-fill-color: var(--accent-primary);"></i>
+                <h3 class="fw-bold m-0">Check your email</h3>
+                <p class="text-secondary small mt-2">We sent a verification code to your email.</p>
+            </div>
+            <form onsubmit="handleOtpSubmit(event)">
+                <div class="mb-4">
+                    <input type="text" class="form-control text-center fw-bold" id="otpCode" placeholder="000000" maxlength="6" style="font-size: 1.5rem; letter-spacing: 8px; background-color: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-primary); padding: 12px; border-radius: 8px;" required>
+                </div>
+                <button type="submit" class="btn btn-primary-custom w-100 py-2">Verify Code</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Application Container -->
+    <div id="app-wrapper" style="display: none;">
+        <!-- Sidebar Navigation -->
+        <nav id="sidebar" class="sidebar">
+            <div class="sidebar-logo">
+                <i class="fa-solid fa-brain"></i> 
+                <span>RetentionBrain</span>
+            </div>
+
+            <div class="nav-section-title">Analytics</div>
+            <button class="sidebar-btn active" onclick="switchTab('tab-overview', this)">
+                <i class="fa-solid fa-chart-pie"></i> Overview
+            </button>
+            <button class="sidebar-btn" onclick="switchTab('tab-segmentation', this)">
+                <i class="fa-solid fa-users-viewfinder"></i> Segmentation
+            </button>
+
+            <div class="nav-section-title">Models</div>
+            <button class="sidebar-btn" onclick="switchTab('tab-uplift', this)">
+                <i class="fa-solid fa-arrow-trend-up"></i> Uplift Insights
+            </button>
+            <button class="sidebar-btn" onclick="switchTab('tab-performance', this)">
+                <i class="fa-solid fa-gauge-high"></i> Model Metrics
+            </button>
+
+            <div class="nav-section-title">Action</div>
+            <button class="sidebar-btn" onclick="switchTab('tab-campaigns', this)">
+                <i class="fa-solid fa-bullhorn"></i> Campaigns
+            </button>
+
+            <div class="sidebar-footer">
+                <div class="d-flex align-items-center gap-3 px-2 mb-3">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--accent-gradient); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px;">
+                        US
+                    </div>
+                    <div style="line-height: 1.2;">
+                        <div style="font-size: 0.85rem; font-weight: 500;">User Session</div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">Workspace</div>
+                    </div>
+                </div>
+                <button class="sidebar-btn" onclick="logout()" style="color: var(--text-secondary);">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out
+                </button>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-wrapper">
+            
+            <!-- Overall Error Alert Placeholder -->
+            <div id="alert-container" style="position: fixed; top: 20px; right: 20px; z-index: 1050; width: 350px;"></div>
+
+            <!-- TAB: Overview -->
+            <div id="tab-overview" class="tab-pane active">
+                <div class="page-header">
+                    <h1 class="page-title">AI Analytics Dashboard</h1>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-outline-secondary" style="border-color: var(--border-color); color: var(--text-primary);" onclick="document.getElementById('fileInput').click()">
+                            <i class="fa-solid fa-cloud-arrow-up me-2"></i> Upload Data
+                        </button>
+                        <form id="uploadForm" onsubmit="uploadDataset(event)" style="display: none;">
+                            <input type="file" id="fileInput" name="file" accept=".csv" onchange="document.getElementById('uploadSubmitBtn').click()">
+                            <button type="submit" id="uploadSubmitBtn"></button>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- KPI Grid -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-3">
+                        <div class="glass-panel p-4 kpi-card">
+                            <div class="metric-title"><i class="fa-solid fa-users text-secondary"></i> Total Customers</div>
+                            <div class="metric-value">{{ metrics.total }}</div>
+                            <div class="text-secondary small mt-2">Active in dataset</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="glass-panel p-4 kpi-card">
+                            <div class="metric-title"><i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-warning);"></i> High Risk (Persuadables)</div>
+                            <div class="metric-value" style="color: var(--text-primary);">{{ metrics.persuadables }}</div>
+                            <div class="text-secondary small mt-2">Requires intervention</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="glass-panel p-4 kpi-card">
+                            <div class="metric-title"><i class="fa-solid fa-bullseye" style="color: var(--accent-success);"></i> Model ROC-AUC</div>
+                            <div class="metric-value">{{ metrics.roc_auc }}</div>
+                            <div class="text-secondary small mt-2">Prediction confidence</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="glass-panel p-4 kpi-card">
+                            <div class="metric-title"><i class="fa-solid fa-sack-dollar" style="color: var(--accent-danger);"></i> Revenue at Risk</div>
+                            <div class="metric-value">${{ metrics.revenue_risk }}</div>
+                            <div class="text-secondary small mt-2">Estimated LTV at risk</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-8">
+                        <div class="glass-panel p-4 h-100">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h5 class="m-0 fw-semibold" style="font-size: 1.1rem;">Churn Probability Distribution</h5>
+                                <span class="badge badge-soft-primary">ML Prediction</span>
+                            </div>
+                            <div style="height: 300px; width: 100%;">
+                                <canvas id="churnDistChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="glass-panel p-4 h-100">
+                            <h5 class="mb-4 fw-semibold" style="font-size: 1.1rem;">Budget Allocation</h5>
+                            
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-secondary text-sm">Spent</span>
+                                <span class="fw-bold">${{ metrics.budget_spent }} / ${{ metrics.budget_total }}</span>
+                            </div>
+                            <div class="progress-slim mb-4">
+                                {% set pct = (metrics.budget_spent / metrics.budget_total * 100) if metrics.budget_total > 0 else 0 %}
+                                <div class="progress-bar-gradient" style="width: {{ pct }}%; height: 100%;"></div>
+                            </div>
+                            
+                            <div class="d-flex align-items-center gap-3 mt-4 pt-4 border-top" style="border-color: var(--border-color)!important;">
+                                <div style="width: 48px; height: 48px; border-radius: 8px; background: rgba(16, 185, 129, 0.1); display: flex; align-items: center; justify-content: center; color: var(--accent-success); font-size: 1.5rem;">
+                                    <i class="fa-solid fa-arrow-trend-up"></i>
+                                </div>
+                                <div>
+                                    <div class="text-secondary" style="font-size: 0.85rem;">Avg Uplift Score</div>
+                                    <div class="fw-bold fs-5">+12.4%</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: Segmentation -->
+            <div id="tab-segmentation" class="tab-pane">
+                <div class="page-header">
+                    <h1 class="page-title">Customer Segmentation</h1>
+                </div>
+                
+                <div class="glass-panel p-0 mb-4 table-container">
+                    <div class="p-4 border-bottom" style="border-color: var(--border-color)!important;">
+                        <h5 class="m-0 fw-semibold" style="font-size: 1.1rem;">Raw Data Explorer</h5>
+                        <p class="text-secondary small m-0 mt-1">Previewing top rows of uploaded dataset.</p>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    {% for col in raw_data.columns %}
+                                    <th>{{ col }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in raw_data.rows %}
+                                <tr>
+                                    {% for item in row %}
+                                    <td>{{ item }}</td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% if metrics.total == 0 %}
+                            <div class="text-center p-5 text-secondary">
+                                <i class="fa-solid fa-folder-open mb-3" style="font-size: 2rem; opacity: 0.5;"></i>
+                                <p>No data available. Upload a dataset to begin.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: Uplift Insights -->
+            <div id="tab-uplift" class="tab-pane">
+                <div class="page-header">
+                    <h1 class="page-title">Uplift Modeling Insights</h1>
+                </div>
+
+                <div class="row g-4 mb-4">
+                    <div class="col-12">
+                        <div class="glass-panel p-4">
+                            <h5 class="mb-4 fw-semibold" style="font-size: 1.1rem;">Uplift Score Analysis</h5>
+                            <p class="text-secondary small mb-4">Visualizing persuadability (treatment effect vs control) across targeted customers.</p>
+                            <div style="height: 350px; width: 100%;">
+                                <canvas id="upliftScatterChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: Model Performance -->
+            <div id="tab-performance" class="tab-pane">
+                <div class="page-header">
+                    <h1 class="page-title">Model Diagnostics</h1>
+                </div>
+                <div class="glass-panel p-4">
+                    <h5 class="mb-4 fw-semibold" style="font-size: 1.1rem;">Top Retention Drivers (XGBoost Feature Importance)</h5>
+                    <p class="text-secondary small mb-4">Relative influence of features in predicting churn and treatment uplift.</p>
+                    <div style="height: 500px; width: 100%;">
+                        <canvas id="featureChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: Campaigns -->
+            <div id="tab-campaigns" class="tab-pane">
+                <div class="page-header">
+                    <h1 class="page-title">AI Campaign Manager</h1>
+                </div>
+
+                <div class="glass-panel p-0 table-container">
+                    <div class="p-4 border-bottom d-flex justify-content-between align-items-center" style="border-color: var(--border-color)!important;">
+                        <div>
+                            <h5 class="m-0 fw-semibold" style="font-size: 1.1rem;">Targeted Interventions</h5>
+                            <p class="text-secondary small m-0 mt-1">AI-selected strategies for high-uplift customers.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Customer ID</th>
+                                    <th>Est. Uplift</th>
+                                    <th>Suggested Offer</th>
+                                    <th>Cost</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in interventions %}
+                                <tr>
+                                    <td class="fw-medium text-white">{{ row.customer_id }}</td>
+                                    <td>
+                                        <span class="badge badge-soft-success">+{{ "%.1f"|format(row.uplift_score * 100) }}%</span>
+                                    </td>
+                                    <td><span class="badge badge-soft-primary">{{ row.offer }}</span></td>
+                                    <td>${{ row.cost }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-secondary" style="border-color: var(--border-color); color: var(--text-primary);" type="button" data-bs-toggle="collapse" data-bs-target="#reasoning-{{ loop.index }}">
+                                            View Details <i class="fa-solid fa-chevron-down ms-1" style="font-size: 0.7em;"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr class="collapse" id="reasoning-{{ loop.index }}">
+                                    <td colspan="5" class="p-0 border-0">
+                                        <div class="ai-reasoning-panel">
+                                            <div class="d-flex mb-3">
+                                                <div class="me-3 text-info"><i class="fa-solid fa-microchip fs-4"></i></div>
+                                                <div>
+                                                    <h6 class="mb-1 text-white fw-semibold">AI Reasoning</h6>
+                                                    <p class="mb-0 text-secondary" style="font-size: 0.85rem;">{{ row.reasoning }}</p>
+                                                </div>
+                                            </div>
+                                            <div class="glass-panel p-3 mb-3 bg-dark">
+                                                <div class="text-secondary small mb-1">Subject: <span class="text-white">{{ row.email_subject }}</span></div>
+                                                <div class="text-secondary small"><em>{{ row.email_body }}</em></div>
+                                            </div>
+                                            <button class="btn btn-primary-custom btn-sm"
+                                                    data-cid="{{ row.customer_id }}"
+                                                    data-sub="{{ row.email_subject }}"
+                                                    data-body="{{ row.email_body }}"
+                                                    onclick="dispatchEmail(this)">
+                                                <i class="fa-solid fa-paper-plane me-1"></i> Send Campaign Email
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-secondary">No active campaigns generated. Run the model to populate.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // --- State Management ---
+        window.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('isLoggedIn') === 'true') {
+                showDashboard(false);
+            }
+        });
+
+        // --- Layout Helpers ---
+        function toggleMobileSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.toggle('show');
+            overlay.classList.toggle('show');
+        }
+
+        function showAlert(msg, type='success') {
+            const container = document.getElementById('alert-container');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} alert-dismissible fade show glass-panel`;
+            alert.style.color = '#fff';
+            alert.style.borderColor = type === 'success' ? 'var(--accent-success)' : 'var(--accent-danger)';
+            alert.innerHTML = `
+                ${msg}
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            container.appendChild(alert);
+            setTimeout(() => alert.remove(), 5000);
+        }
+
+        // --- Sub-views (Tabs) ---
+        function switchTab(tabId, element, updateHistory = true) {
+            // Close sidebar on mobile after clicking
+            if(window.innerWidth <= 992) {
+                const sidebar = document.getElementById('sidebar');
+                const overlay = document.getElementById('sidebar-overlay');
+                if(sidebar.classList.contains('show')) {
+                    sidebar.classList.remove('show');
+                    overlay.classList.remove('show');
+                }
+            }
+
+            document.querySelectorAll('.tab-pane').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.sidebar-btn').forEach(btn => btn.classList.remove('active'));
+            
+            const targetPane = document.getElementById(tabId);
+            if(targetPane) targetPane.classList.add('active');
+            
+            let targetBtn = element;
+            if (!targetBtn) targetBtn = document.querySelector(`button[onclick*="${tabId}"]`);
+            if (targetBtn) targetBtn.classList.add('active');
+
+            if (updateHistory) {
+                history.pushState({ tab: tabId }, '', `#${tabId}`);
+            }
+        }
+
+        window.addEventListener('popstate', (event) => {
+            if (event.state && event.state.tab) {
+                switchTab(event.state.tab, null, false);
+            } else {
+                switchTab('tab-overview', null, false);
+            }
+        });
+
+        // --- Auth Logic ---
+        function toggleAuth(type) {
+            document.getElementById('login-box').style.display = 'none';
+            document.getElementById('signup-box').style.display = 'none';
+            document.getElementById('otp-box').style.display = 'none';
+            document.getElementById(type + '-box').style.display = 'block';
+        }
+
+        function handleLogin(event) {
+            event.preventDefault();
+            const btn = event.target.querySelector('button[type="submit"]');
+            const origText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+            btn.disabled = true;
+            
+            setTimeout(() => {
+                showDashboard();
+                btn.innerHTML = origText;
+                btn.disabled = false;
+            }, 800);
+        }
+
+        async function handleSignup(event) {
+            event.preventDefault(); 
+            const email = document.getElementById('signup-email').value;
+            const btn = document.getElementById('btn-send-otp');
+            const origText = btn.innerHTML;
+            
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Processing';
+            btn.disabled = true;
+
+            try {
+                await fetch('/send-otp/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email })
+                });
+            } catch (e) {
+                console.error(e);
+            }
+
+            setTimeout(() => {
+                btn.innerHTML = origText;
+                btn.disabled = false;
+                toggleAuth('otp');
+            }, 1000);
+        }
+
+        function handleOtpSubmit(event) {
+            event.preventDefault();
+            const btn = event.target.querySelector('button[type="submit"]');
+            const origText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+            btn.disabled = true;
+
+            setTimeout(() => {
+                showDashboard();
+                btn.innerHTML = origText;
+                btn.disabled = false;
+            }, 800);
+        }
+
+        function showDashboard(updateHistory = true) {
+            localStorage.setItem('isLoggedIn', 'true');
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('app-wrapper').style.display = 'block';
+            
+            let tabId = 'tab-overview';
+            if (history.state && history.state.tab) tabId = history.state.tab;
+            
+            switchTab(tabId, null, updateHistory);
+            renderCharts();
+        }
+
+        function logout() {
+            localStorage.removeItem('isLoggedIn');
+            window.location.href = "/";
+        }
+
+        // --- Data Interaction ---
+        async function uploadDataset(event) {
+            event.preventDefault(); 
+            const form = event.target;
+            const formData = new FormData(form);
+            
+            showAlert('Uploading and running ML pipeline...', 'success');
+
+            try {
+                await fetch('/upload_dataset/', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                showAlert('Model processed successfully. Refreshing view...', 'success');
+                setTimeout(() => window.location.reload(), 2000);
+            } catch (e) {
+                showAlert('Failed to process dataset.', 'danger');
+            }
+        }
+
+        async function dispatchEmail(btn) {
+            const customerId = btn.getAttribute('data-cid');
+            const subject = btn.getAttribute('data-sub');
+            const body = btn.getAttribute('data-body');
+            const origHTML = btn.innerHTML;
+
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin me-1"></i> Sending...';
+            btn.disabled = true;
+
+            try {
+                await fetch('/send-offer/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ customer_id: customerId, email_subject: subject, email_body: body })
+                });
+
+                btn.innerHTML = '<i class="fa-solid fa-check me-1"></i> Dispatched';
+                btn.classList.replace('btn-primary-custom', 'btn-success');
+                showAlert(`Email successfully dispatched to ${customerId}`);
+                
+            } catch (e) {
+                btn.innerHTML = '<i class="fa-solid fa-xmark me-1"></i> Failed';
+                btn.classList.replace('btn-primary-custom', 'btn-danger');
+                btn.disabled = false;
+                showAlert('Failed to send email.', 'danger');
+            }
+        }
+
+        // --- Chart.js Configurations (SaaS Dark Theme) ---
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.font.family = 'Inter';
+        
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(28, 31, 38, 0.95)',
+                    titleColor: '#f8fafc',
+                    bodyColor: '#cbd5e1',
+                    borderColor: '#2d3748',
+                    borderWidth: 1,
+                    padding: 12,
+                    cornerRadius: 8
+                }
+            },
+            scales: {
+                y: { grid: { color: 'rgba(255,255,255,0.05)' }, border: { display: false } },
+                x: { grid: { display: false }, border: { display: false } }
+            }
+        };
+
+        function renderCharts() {
+            // Data exposed from Jinja2
+            const featureLabels = {{ feature_names | safe }};
+            const featureData = {{ feature_vals | safe }};
+            
+            // 1. Feature Importance Bar Chart
+            if(document.getElementById('featureChart') && featureLabels.length > 0) {
+                new Chart(document.getElementById('featureChart').getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: featureLabels,
+                        datasets: [{
+                            data: featureData,
+                            backgroundColor: 'rgba(99, 102, 241, 0.5)',
+                            borderColor: '#6366f1',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            hoverBackgroundColor: 'rgba(99, 102, 241, 0.8)'
+                        }]
+                    },
+                    options: chartOptions
+                });
+            }
+
+            // 2. Churn Distribution Placeholder (Mock Data)
+            if(document.getElementById('churnDistChart')) {
+                // We create a mock normal distribution curve for visual appeal
+                const distLabels = ['0-10%', '10-20%', '20-30%', '30-40%', '40-50%', '50-60%', '60-70%', '70-80%', '80-90%', '90-100%'];
+                const distData = [120, 150, 200, 300, 250, 180, 110, 80, 40, 20]; // Mocked frequency
+                
+                const ctxDist = document.getElementById('churnDistChart').getContext('2d');
+                let gradient = ctxDist.createLinearGradient(0, 0, 0, 300);
+                gradient.addColorStop(0, 'rgba(99, 102, 241, 0.5)');
+                gradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+
+                new Chart(ctxDist, {
+                    type: 'line',
+                    data: {
+                        labels: distLabels,
+                        datasets: [{
+                            label: 'Customers',
+                            data: distData,
+                            fill: true,
+                            backgroundColor: gradient,
+                            borderColor: '#6366f1',
+                            tension: 0.4,
+                            pointRadius: 0
+                        }]
+                    },
+                    options: chartOptions
+                });
+            }
+
+            // 3. Uplift Scatter Plot (Mocking based on interventions if available)
+            if(document.getElementById('upliftScatterChart')) {
+                // Generate scatter points based on intervention data provided to template
+                const rawInterventions = {{ interventions | tojson | safe }};
+                let scatterData = [];
+                
+                if(rawInterventions && rawInterventions.length > 0) {
+                    scatterData = rawInterventions.map(i => ({
+                        x: i.cost, 
+                        y: i.uplift_score * 100 // % view
+                    }));
+                } else {
+                    // Fallback mock data if empty
+                    for(let i=0; i<30; i++) {
+                        scatterData.push({ x: Math.random() * 50 + 10, y: Math.random() * 20 });
+                    }
+                }
+
+                new Chart(document.getElementById('upliftScatterChart').getContext('2d'), {
+                    type: 'scatter',
+                    data: {
+                        datasets: [{
+                            label: 'Intervention Candidates',
+                            data: scatterData,
+                            backgroundColor: '#10b981',
+                            pointRadius: 6,
+                            pointHoverRadius: 8
+                        }]
+                    },
+                    options: {
+                        ...chartOptions,
+                        scales: {
+                            y: { ...chartOptions.scales.y, title: { display: true, text: 'Uplift Expected (%)' } },
+                            x: { ...chartOptions.scales.x, title: { display: true, text: 'Implementation Cost ($)' } }
+                        }
+                    }
+                });
+            }
+        }
+    </script>
+</body>
+</html>

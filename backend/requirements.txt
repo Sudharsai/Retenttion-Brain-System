@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+pandas
+xgboost
+scikit-learn
+celery
+redis
+SQLAlchemy
+PyMySQL
+passlib[bcrypt]
+python-jose[cryptography]
+python-multipart
+slowapi
+fastapi-cache2[redis]
+bcrypt==4.0.1
+python-dotenv
