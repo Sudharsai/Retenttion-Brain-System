@@ -4,7 +4,7 @@ import pandas as pd
 import re
 from typing import Dict, List
 
-from models.domain import Customer, ChurnScore, UpliftScore, RevenueData, AppLog
+from models.domain import Customer, ChurnScore, UpliftScore, RevenueData, AppLog, Campaign, Alert
 from services.ml_service import MLService
 
 def get_model_stats(db: Session, company_id: int):
@@ -70,7 +70,7 @@ def run_retraining(db: Session, company_id: int):
         })
     
     df = pd.DataFrame(data)
-    scored_df = MLService.train_and_score(df)
+    scored_df, metrics = MLService.train_and_score(df)
     
     for _, row in scored_df.iterrows():
         cust_id = int(row['id'])
@@ -155,3 +155,53 @@ def get_deep_dive_analysis(db: Session, company_id: int):
             }
         }
     }
+
+def get_active_alerts(db: Session, company_id: int):
+    """
+    Fetch recent high-priority alerts for the ticker.
+    Automatically generates churn alerts if none exist.
+    """
+    alerts = db.query(Alert).filter(Alert.company_id == company_id).order_by(Alert.created_at.desc()).limit(10).all()
+    
+    if not alerts:
+        # Generate some initial alerts from high-risk nodes if empty
+        high_risk = db.query(Customer).filter(Customer.company_id == company_id, Customer.churn_risk > 0.8).limit(3).all()
+        for c in high_risk:
+            new_alert = Alert(
+                company_id=company_id,
+                type="CHURN_RISK",
+                details=f"CRITICAL: Identity Node {c.external_customer_id} ({c.name}) shows {int(c.churn_risk*100)}% churn probability."
+            )
+            db.add(new_alert)
+        db.commit()
+        alerts = db.query(Alert).filter(Alert.company_id == company_id).order_by(Alert.created_at.desc()).limit(10).all()
+        
+    return alerts
+
+def bulk_intervene_customers(db: Session, company_id: int):
+    """
+    Marks high-risk customers as 'Intervened' and creates a campaign record.
+    """
+    high_risk_count = db.query(Customer).filter(Customer.company_id == company_id, Customer.churn_risk > 0.7).count()
+    
+    if high_risk_count == 0:
+        return {"success": False, "message": "No high-risk nodes detected for intervention."}
+
+    # Simulate intervention action
+    log = AppLog(
+        company_id=company_id,
+        action="BULK_INTERVENTION_INITIATED",
+        details=f"Automated neural outreach triggered for {high_risk_count} high-risk identities."
+    )
+    db.add(log)
+    
+    # Create an alert
+    alert = Alert(
+        company_id=company_id,
+        type="SUCCESS",
+        details=f"Intervention sequence successfully deployed to {high_risk_count} nodes."
+    )
+    db.add(alert)
+    db.commit()
+    
+    return {"success": True, "intervened_count": high_risk_count}

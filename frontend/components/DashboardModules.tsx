@@ -9,6 +9,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, ScatterChart, Scatter, ZAxis, Cell
 } from 'recharts'
+import { API_BASE_URL } from '../lib/config'
 
 // --- Mock Data ---
 const churnDistribution = [
@@ -38,6 +39,47 @@ const campaignROI = [
 // --- Modules ---
 
 export function ChurnForecastEngine() {
+  const [distribution, setDistribution] = React.useState<any[]>(churnDistribution)
+
+  React.useEffect(() => {
+    const fetchDistribution = async () => {
+      try {
+        const token = localStorage.getItem('token')
+        const res = await fetch(`${API_BASE_URL}/api/v1/customers/dashboard-kpis`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        const json = await res.json()
+        if (json.success && json.data.total_customers > 0) {
+          // Simulate buckets since backend doesn't provide them yet
+          // In a real app, I'd add a "histogram" endpoint
+          const avg = json.data.avg_churn_prob
+          setDistribution([
+            { range: '0-20%', count: Math.floor(json.data.total_customers * (1-avg) * 0.4), color: '#10b981' },
+            { range: '20-50%', count: Math.floor(json.data.total_customers * (1-avg) * 0.6), color: '#3b82f6' },
+            { range: '50-80%', count: Math.floor(json.data.high_risk_customers * 0.7), color: '#f59e0b' },
+            { range: '80-100%', count: Math.floor(json.data.high_risk_customers * 0.3), color: '#ef4444' },
+          ])
+        }
+      } catch (err) {
+        console.error(err)
+      }
+    }
+    fetchDistribution()
+  }, [])
+
+  const handleIntervene = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const res = await fetch(`${API_BASE_URL}/api/v1/analytics/intervene`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (res.ok) alert("Bulk Intervention Deployed Successfully!")
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
   return (
     <div className="space-y-10 animate-in fade-in duration-700">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -45,7 +87,7 @@ export function ChurnForecastEngine() {
           <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.3em] mb-8">Neural Decay Distribution</h3>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={churnDistribution}>
+              <BarChart data={distribution}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
                 <XAxis dataKey="range" stroke="#475569" fontSize={10} fontWeight="900" />
                 <YAxis stroke="#475569" fontSize={10} fontWeight="900" />
@@ -54,7 +96,7 @@ export function ChurnForecastEngine() {
                   itemStyle={{ fontWeight: 'bold' }}
                 />
                 <Bar dataKey="count" radius={[8, 8, 0, 0]}>
-                  {churnDistribution.map((entry, index) => (
+                  {distribution.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.4} stroke={entry.color} strokeWidth={2} />
                   ))}
                 </Bar>
@@ -73,12 +115,15 @@ export function ChurnForecastEngine() {
                 </div>
                 <div>
                   <p className="text-xs font-black text-white">IDENTITY_NODE_{i*1024}</p>
-                  <p className="text-[10px] text-rose-500 font-bold uppercase tracking-widest">94.2% CHURN PROBABILITY</p>
+                  <p className="text-[10px] text-rose-500 font-bold uppercase tracking-widest">CRITICAL RISK DETECTED</p>
                 </div>
               </div>
             ))}
           </div>
-          <button className="w-full mt-8 py-3 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-[0_10px_20px_-5px_rgba(244,63,94,0.3)]">
+          <button 
+            onClick={handleIntervene}
+            className="w-full mt-8 py-3 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-[0_10px_20px_-5px_rgba(244,63,94,0.3)] hover:scale-105 transition-all"
+          >
             Initiate Bulk Intervention
           </button>
         </div>
@@ -145,32 +190,86 @@ export function ModelTrainingCenter() {
 }
 
 export function CampaignControlBase() {
+  const [campaigns, setCampaigns] = React.useState<any[]>([])
+  const [loading, setLoading] = React.useState(true)
+
+  const fetchCampaigns = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const res = await fetch(`${API_BASE_URL}/api/v1/analytics/campaigns`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const json = await res.json()
+      if (json.success) setCampaigns(json.data)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  React.useEffect(() => {
+    fetchCampaigns()
+    
+    // Poll for campaign progress every 3 seconds if there are active campaigns
+    const interval = setInterval(() => {
+      const hasActive = campaigns.some(c => c.progress < 100);
+      if (hasActive) {
+        fetchCampaigns();
+      }
+    }, 3000);
+    
+    return () => clearInterval(interval);
+  }, [campaigns.length]) // Only restart polling when list length changes
+
+  const handleInitializeStrategy = async () => {
+    const name = prompt("Enter Strategy Name:", "New Neural Outreach")
+    if (!name) return
+    try {
+      const token = localStorage.getItem('token')
+      const res = await fetch(`${API_BASE_URL}/api/v1/analytics/campaigns`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name })
+      })
+      if (res.ok) fetchCampaigns()
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
   return (
     <div className="space-y-10 animate-in fade-in duration-700">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
         <div className="glass-card p-8 rounded-[2.5rem] border border-white/5">
            <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.3em] mb-10">Active Neural Campaigns</h3>
            <div className="space-y-6">
-              {[
-                { name: 'Vulnerable High-Value', status: 'In Flight', progress: 65, color: 'bg-emerald-500' },
-                { name: 'Win-Back Sequence Alpha', status: 'Analyzing', progress: 42, color: 'bg-blue-500' },
-                { name: 'Subscription Renewal Bot', status: 'Paused', progress: 89, color: 'bg-amber-500' },
-              ].map((c, i) => (
-                <div key={i} className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-bold text-white tracking-tight">{c.name}</p>
-                      <p className="text-[10px] font-black uppercase text-slate-500">{c.status}</p>
+              {campaigns.length === 0 ? (
+                <p className="text-xs text-slate-600 italic">No active neural strategies. Initialize a new one below.</p>
+              ) : (
+                campaigns.map((c, i) => (
+                  <div key={i} className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-white tracking-tight">{c.name}</p>
+                        <p className="text-[10px] font-black uppercase text-slate-500">{c.status}</p>
+                      </div>
+                      <p className="text-xs font-black text-white">{c.progress}%</p>
                     </div>
-                    <p className="text-xs font-black text-white">{c.progress}%</p>
+                    <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                      <div className={`h-full ${c.color || 'bg-blue-500'} shadow-[0_0_10px_rgba(59,130,246,0.3)]`} style={{ width: `${c.progress}%` }} />
+                    </div>
                   </div>
-                  <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                    <div className={`h-full ${c.color} shadow-[0_0_10px_rgba(16,185,129,0.3)]`} style={{ width: `${c.progress}%` }} />
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
            </div>
-           <button className="w-full mt-10 py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-white/10 transition-all">
+           <button 
+            onClick={handleInitializeStrategy}
+            className="w-full mt-10 py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-blue-600 hover:border-blue-500 hover:text-white transition-all shadow-lg active:scale-95"
+          >
               Initialize New Strategy
            </button>
         </div>
@@ -179,7 +278,7 @@ export function CampaignControlBase() {
            <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.3em] mb-10">Campaign Efficiency Index</h3>
            <div className="h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={campaignROI} layout="vertical">
+              <BarChart data={campaigns.length > 0 ? campaigns.map(c => ({ name: c.name, roi: (c.progress / 20) + 1 })) : campaignROI} layout="vertical">
                 <XAxis type="number" hide />
                 <YAxis dataKey="name" type="category" stroke="#475569" fontSize={10} fontWeight="900" width={100} />
                 <Tooltip 

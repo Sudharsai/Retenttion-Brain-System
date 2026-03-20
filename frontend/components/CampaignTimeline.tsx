@@ -18,25 +18,43 @@ export function CampaignTimeline() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchCampaigns = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(`${API_BASE_URL}/api/v1/customers/campaign-timeline`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const json = await res.json();
-        if (json.success) {
-          setCampaigns(json.data);
-        }
-      } catch (err) {
-        console.error("Failed to fetch campaigns", err);
-      } finally {
-        setLoading(false);
+  const fetchCampaigns = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/v1/customers/campaign-timeline`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const json = await res.json();
+      if (json.success) {
+        setCampaigns(json.data);
       }
-    };
+    } catch (err) {
+      console.error("Failed to fetch campaigns", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchCampaigns();
   }, []);
+
+  const handleIntervene = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/v1/analytics/intervene`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const json = await res.json();
+        alert(`Neural Intervention Scheduled! Clusters targeted: ${json.intervened_count || 'Sector Alpha'}`);
+        fetchCampaigns(); // Refresh timeline
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
   return (
     <div className="glass-card p-10 rounded-[2.5rem] border border-white/5 relative overflow-hidden h-full">
       <div className="flex justify-between items-center mb-10">
@@ -86,7 +104,10 @@ export function CampaignTimeline() {
       </div>
       
       <div className="mt-10 pt-6 border-t border-white/5">
-         <button className="w-full py-4 rounded-2xl bg-blue-600/10 text-blue-400 font-black text-[10px] uppercase tracking-[0.2em] border border-blue-500/20 hover:bg-blue-600 hover:text-white transition-all">
+         <button 
+           onClick={handleIntervene}
+           className="w-full py-4 rounded-2xl bg-blue-600/10 text-blue-400 font-black text-[10px] uppercase tracking-[0.2em] border border-blue-500/20 hover:bg-blue-600 hover:text-white transition-all"
+         >
             Schedule New Intervention
          </button>
       </div>

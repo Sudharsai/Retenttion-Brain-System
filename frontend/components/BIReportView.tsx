@@ -55,6 +55,7 @@ export default function BIReportView() {
   const [handshakeStep, setHandshakeStep] = useState(0)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const [deepDiveData, setDeepDiveData] = useState<{ items: DeepDiveItem[], summary: DeepDiveSummary } | null>(null)
 
   useEffect(() => {
@@ -99,6 +100,25 @@ export default function BIReportView() {
     }
   };
 
+  const handleSync = () => {
+    setVerifying(true);
+    setHandshakeStep(0);
+  };
+
+  const handleExport = () => {
+    if (!deepDiveData) {
+      alert("Please run Deep-Dive Analysis first to generate a full Strategic Brief.");
+      return;
+    }
+    setIsExporting(true);
+    // Give UI time to render the 'Exporting' state before blocking print call
+    setTimeout(() => {
+      window.print();
+      // Reset after a small delay since window.print() is blocking
+      setTimeout(() => setIsExporting(false), 1000);
+    }, 500);
+  };
+
   if (verifying) {
     return (
       <div className="h-[70vh] flex flex-col items-center justify-center bg-[#070a13] text-white">
@@ -122,8 +142,77 @@ export default function BIReportView() {
   }
 
   return (
-    <div className="px-10 py-10 space-y-10 animate-in fade-in zoom-in-95 duration-700 max-w-[1600px] mx-auto relative">
-      <header className="flex justify-between items-center mb-10">
+    <div className="px-10 py-10 space-y-10 animate-in fade-in zoom-in-95 duration-700 max-w-[1600px] mx-auto relative print:m-0 print:p-8 print:bg-white print:text-black">
+      {/* Print-Specific Styles */}
+      <style jsx global>{`
+        @media print {
+          body {
+            background: white !important;
+            color: black !important;
+          }
+          .glass-card {
+            background: white !important;
+            border: 1px solid #ddd !important;
+            color: black !important;
+            box-shadow: none !important;
+          }
+          .no-print, .print-hidden {
+            display: none !important;
+          }
+          .print-only {
+            display: block !important;
+          }
+          header button, nav, .sidebar {
+            display: none !important;
+          }
+          .recharts-surface {
+            filter: grayscale(0.2) !important;
+          }
+          h2, h3, h4, p, span, h1 {
+            color: black !important;
+          }
+          .bg-blue-600 {
+             background-color: #2563eb !important;
+             color: white !important;
+             -webkit-print-color-adjust: exact;
+          }
+          .bg-emerald-600, .bg-emerald-500 {
+             background-color: #059669 !important;
+             -webkit-print-color-adjust: exact;
+          }
+          .bg-rose-600, .bg-rose-500 {
+             background-color: #e11d48 !important;
+             -webkit-print-color-adjust: exact;
+          }
+          .text-blue-600, .text-blue-500, .text-blue-400 { color: #2563eb !important; }
+          .text-emerald-500, .text-emerald-400 { color: #059669 !important; }
+          .text-rose-500, .text-rose-400 { color: #e11d48 !important; }
+          
+          .print-break-before {
+            page-break-before: always;
+          }
+          .print-break-inside-avoid {
+            page-break-inside: avoid;
+          }
+        }
+        .print-only { display: none; }
+      `}</style>
+
+      {/* Strategic Report Cover (Print Only) */}
+      <div className="print-only mb-20">
+        <div className="flex justify-between items-start border-b-4 border-blue-600 pb-10">
+          <div>
+            <h1 className="text-5xl font-black tracking-tighter text-black uppercase">Strategic Intelligence Brief</h1>
+            <p className="text-xl font-bold text-blue-600 mt-4 tracking-widest uppercase">Neural Operations // Confidential // V2.4</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs font-black text-slate-500 uppercase">Generated On</p>
+            <p className="text-sm font-bold text-black">{new Date().toLocaleDateString()}</p>
+          </div>
+        </div>
+      </div>
+
+      <header className="flex justify-between items-center mb-10 no-print">
         <div>
           <h2 className="text-4xl font-black text-white tracking-tighter flex items-center gap-4">
             <BarChart3 className="w-10 h-10 text-blue-500" />
@@ -132,18 +221,24 @@ export default function BIReportView() {
           <p className="text-slate-500 font-bold uppercase tracking-[0.4em] text-[10px] mt-2">Strategic Intelligence Engine // Secure Session</p>
         </div>
         <div className="flex gap-4">
-           <button className="flex items-center gap-2 px-6 py-3 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
+           <button 
+             onClick={handleSync}
+             className="flex items-center gap-2 px-6 py-3 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+           >
               <RefreshCcw className="w-4 h-4 text-blue-400" />
               Sync Base
            </button>
-           <button className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:scale-105 transition-all">
+           <button 
+             onClick={handleExport}
+             className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:scale-105 transition-all"
+           >
               <Download className="w-4 h-4" />
               Export Brief
            </button>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 no-print">
         <div className="lg:col-span-2 space-y-8">
            <div className="glass-card p-10 rounded-[2.5rem] border border-white/5">
               <div className="flex justify-between items-start mb-10">
@@ -171,8 +266,8 @@ export default function BIReportView() {
                          contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff10', borderRadius: '12px' }}
                          itemStyle={{ fontWeight: 'bold' }}
                        />
-                       <Area type="monotone" dataKey="churn" stroke="#3b82f6" fillOpacity={1} fill="url(#colorChurn)" strokeWidth={3} />
-                       <Area type="monotone" dataKey="revenue" stroke="#10b981" fillOpacity={0} strokeWidth={3} strokeDasharray="5 5" />
+                       <Area type="monotone" dataKey="churn" stroke="#3b82f6" fillOpacity={1} fill="url(#colorChurn)" strokeWidth={3} isAnimationActive={false} />
+                       <Area type="monotone" dataKey="revenue" stroke="#10b981" fillOpacity={0} strokeWidth={3} strokeDasharray="5 5" isAnimationActive={false} />
                     </AreaChart>
                  </ResponsiveContainer>
               </div>
@@ -200,7 +295,7 @@ export default function BIReportView() {
               <div className="h-[250px] w-full">
                  <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                       <Pie data={segmentData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                       <Pie data={segmentData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" isAnimationActive={false}>
                           {segmentData.map((entry, index) => (
                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                           ))}
@@ -219,7 +314,7 @@ export default function BIReportView() {
               </div>
            </div>
 
-           <div className="glass-card p-8 rounded-[2.5rem] border border-white/5 bg-blue-600/10 scale-100 hover:scale-[1.02] transition-transform duration-500">
+           <div className="glass-card p-8 rounded-[2.5rem] border border-white/5 bg-blue-600/10 scale-100 hover:scale-[1.02] transition-transform duration-500 no-print">
               <div className="flex gap-4 items-start mb-6">
                  <div className="p-3 bg-blue-600 rounded-2xl shadow-lg">
                     <Cpu className="w-6 h-6 text-white" />
@@ -244,8 +339,61 @@ export default function BIReportView() {
         </div>
       </div>
 
+      {/* Main Report for Printing (Visible during print, hidden during UI if modal closed) */}
+      <div className={`print-break-before ${deepDiveData ? 'block' : 'hidden no-print'}`}>
+        {deepDiveData && (
+           <div className="space-y-10 pt-10">
+              <div className="print-only mb-10 h-1 bg-slate-100" />
+              <h3 className="text-3xl font-black text-black tracking-tighter border-l-8 border-blue-600 pl-6 uppercase">Strategic Deep-Dive Assessment</h3>
+              
+              <div className="grid grid-cols-3 gap-6">
+                <div className="p-8 border-2 border-slate-100 rounded-3xl bg-slate-50">
+                  <p className="text-[10px] font-black text-slate-500 uppercase mb-2">ROI Opportunity</p>
+                  <p className="text-4xl font-black text-blue-600">${deepDiveData.summary.total_roi_potential.toLocaleString()}</p>
+                </div>
+                <div className="p-8 border-2 border-slate-100 rounded-3xl bg-slate-50">
+                  <p className="text-[10px] font-black text-slate-500 uppercase mb-2">Identity Cluster</p>
+                  <p className="text-4xl font-black text-black">{deepDiveData.summary.total_analyzed}</p>
+                </div>
+                <div className="p-8 border-2 border-slate-100 rounded-3xl bg-slate-50">
+                  <p className="text-[10px] font-black text-slate-500 uppercase mb-2">Risk Factor</p>
+                  <p className="text-4xl font-black text-rose-600">{deepDiveData.summary.critical_nodes} Nodes</p>
+                </div>
+              </div>
+
+              <div className="print-break-inside-avoid">
+                <table className="w-full text-left border-collapse mt-10">
+                  <thead>
+                    <tr className="border-b-2 border-black">
+                      <th className="py-4 text-[10px] font-black uppercase tracking-widest">Target Name</th>
+                      <th className="py-4 text-[10px] font-black uppercase tracking-widest text-right">Risk %</th>
+                      <th className="py-4 text-[10px] font-black uppercase tracking-widest text-right">Neural Status</th>
+                      <th className="py-4 text-[10px] font-black uppercase tracking-widest text-right">Protocol</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {deepDiveData.items.map((item, i) => (
+                      <tr key={i} className="border-b border-slate-100">
+                        <td className="py-4">
+                          <p className="text-sm font-bold text-black">{item.name}</p>
+                          <p className="text-[9px] text-slate-500 font-bold">{item.email}</p>
+                        </td>
+                        <td className="py-4 text-sm font-bold text-black text-right">{Math.round(item.churn_risk * 100)}%</td>
+                        <td className="py-4 text-right">
+                          <span className="text-[9px] font-black px-2 py-1 bg-slate-100 rounded uppercase border border-slate-200">{item.priority}</span>
+                        </td>
+                        <td className="py-4 text-right text-[10px] font-black uppercase tracking-tighter text-blue-600">{item.action}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+           </div>
+        )}
+      </div>
+
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 sm:p-20">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 sm:p-20 no-print">
            <div className="absolute inset-0 bg-[#070a13]/90 backdrop-blur-xl animate-in fade-in duration-300" onClick={() => setIsModalOpen(false)} />
            <div className="glass-card w-full max-w-6xl max-h-[90vh] rounded-[3rem] border border-white/10 overflow-hidden relative z-10 flex flex-col animate-in zoom-in-95 duration-500 shadow-[0_0_100px_rgba(59,130,246,0.15)]">
               <div className="p-10 border-b border-white/5 flex justify-between items-center bg-white/5">
@@ -342,6 +490,17 @@ export default function BIReportView() {
                     </div>
                  )}
               </div>
+           </div>
+        </div>
+      )}
+      {isExporting && (
+        <div className="fixed bottom-10 right-10 z-[200] glass-card p-6 pr-10 rounded-2xl border border-blue-500/30 flex items-center gap-4 animate-in slide-in-from-right-10 duration-500 no-print">
+           <div className="p-3 bg-blue-600 rounded-xl animate-pulse">
+              <Download className="w-5 h-5 text-white" />
+           </div>
+           <div>
+              <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Neural Link Active</p>
+              <p className="text-sm font-black text-white">Generating Strategic Brief...</p>
            </div>
         </div>
       )}

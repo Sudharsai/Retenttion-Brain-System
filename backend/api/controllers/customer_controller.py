@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from models.domain import Customer, ChurnScore, UpliftScore, RevenueData, Dataset
+from models.domain import Customer, ChurnScore, UpliftScore, RevenueData, Dataset, Campaign
 from fastapi import HTTPException
 from typing import List, Optional
 
@@ -38,8 +38,8 @@ def get_datasets(db: Session, company_id: int):
 def delete_dataset(db: Session, company_id: int, dataset_id: int):
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.company_id == company_id).first()
     if not dataset: raise HTTPException(status_code=404, detail="Dataset not found")
-    db.query(Customer).filter(Customer.dataset_id == dataset_id).delete()
-    db.delete(dataset)
+    db.query(Customer).filter(Customer.dataset_id == dataset_id).delete(synchronize_session=False)
+    db.query(Dataset).filter(Dataset.id == dataset_id).delete(synchronize_session=False)
     db.commit()
     return {"success": True}
 
@@ -51,3 +51,33 @@ def bulk_delete_datasets(db: Session, company_id: int, dataset_ids: List[int]):
     db.query(Dataset).filter(Dataset.id.in_(target_ids)).delete(synchronize_session=False)
     db.commit()
     return {"success": True, "deleted_count": len(target_ids)}
+def get_campaign_timeline(db: Session, company_id: int):
+    """
+    Returns a list of strategic interventions and campaigns for the timeline.
+    """
+    from datetime import datetime, timedelta
+    
+    # Fetch real campaigns from DB
+    real_campaigns = db.query(Campaign).filter(Campaign.company_id == company_id).order_by(Campaign.created_at.desc()).all()
+    
+    timeline = []
+    
+    # Map real campaigns to timeline format
+    for c in real_campaigns:
+        timeline.append({
+            "id": c.id,
+            "name": c.name,
+            "type": "Neural Outreach",
+            "status": "Active" if c.progress < 100 else "Completed",
+            "impact": f"{c.progress}% Sync",
+            "date": c.created_at.strftime("%b %d")
+        })
+        
+    # Add some mock historical context if empty
+    if not timeline:
+        timeline = [
+            {"id": 999, "name": "Initial Cluster Mapping", "type": "System Init", "status": "Completed", "impact": "100% Coverage", "date": "Mar 15"},
+            {"id": 998, "name": "Legacy Data Sync", "type": "Data Ingestion", "status": "Completed", "impact": "Baseline Set", "date": "Mar 10"}
+        ]
+        
+    return timeline

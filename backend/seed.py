@@ -7,24 +7,25 @@ import sys
 # Ensure the module can be loaded correctly
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from database.session import SessionLocal, engine
-from models.domain import Base, Company, User, Customer, ChurnScore, UpliftScore, RevenueData, AppLog
+from models.domain import Base, Company, User, Customer, ChurnScore, UpliftScore, RevenueData, AppLog, Dataset
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def get_password_hash(password):
     return pwd_context.hash(password)
 
-def init_db():
-    print("Creating tables...")
-    Base.metadata.create_all(bind=engine)
-    
-    db = SessionLocal()
-    
-    # 0. Clean and Seed
-    print("Pre-seeding cleanup...")
-    db.query(User).delete()
-    db.query(Company).delete()
-    db.commit()
+def seed_all(db: Session, drop_existing: bool = False):
+    if drop_existing:
+        print("Pre-seeding cleanup...")
+        db.query(AppLog).delete()
+        db.query(RevenueData).delete()
+        db.query(UpliftScore).delete()
+        db.query(ChurnScore).delete()
+        db.query(Customer).delete()
+        db.query(User).delete()
+        db.query(Dataset).delete()
+        db.query(Company).delete()
+        db.commit()
 
     print("Seeding database...")
     
@@ -86,8 +87,25 @@ def init_db():
         db.add(RevenueData(customer_id=cust.id, total_revenue=rev, risk_amount=risk))
 
     db.commit()
-    print("Database seeded successfully with users 'admin' and 'demouser'.")
+    print("Database seeded successfully.")
     db.close()
+
+def init_db():
+    print("Creating tables...")
+    Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    seed_all(db, drop_existing=True)
+
+def seed_if_empty():
+    db = SessionLocal()
+    try:
+        if db.query(Company).count() == 0:
+            print("Database is empty, seeding...")
+            seed_all(db, drop_existing=False)
+        else:
+            print("Database already contains data, skipping seeding.")
+    finally:
+        db.close()
 
 if __name__ == "__main__":
     init_db()

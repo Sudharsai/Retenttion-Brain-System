@@ -20,3 +20,31 @@ def retrain_model(db: Session = Depends(get_db), user: dict = Depends(get_curren
 @router.get("/deep-dive")
 def get_deep_dive(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
     return analytics_controller.get_deep_dive_analysis(db, user["cid"])
+
+@router.get("/alerts")
+def get_alerts(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    return {
+        "success": True,
+        "data": analytics_controller.get_active_alerts(db, user["cid"])
+    }
+
+@router.post("/intervene")
+def bulk_intervene(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    return analytics_controller.bulk_intervene_customers(db, user["cid"])
+
+# Campaign Routes
+from api.controllers import campaign_controller
+
+@router.get("/campaigns")
+def list_campaigns(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    return {
+        "success": True,
+        "data": campaign_controller.get_campaigns(db, user["cid"])
+    }
+
+@router.post("/campaigns")
+def create_campaign(req: campaign_controller.CampaignCreate, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    return {
+        "success": True,
+        "data": campaign_controller.create_campaign(db, user["cid"], req)
+    }

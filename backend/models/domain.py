@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, DECIMAL, Enum, JSON, Text
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, DECIMAL, Enum, JSON, Text, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
@@ -54,6 +54,7 @@ class Customer(Base):
     transactions_count = Column(Integer)
     churn_risk = Column(Float, default=0.0)
     uplift_score = Column(Float, default=0.0)
+    last_notified = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     company = relationship("Company", back_populates="customers")
@@ -99,4 +100,23 @@ class AppLog(Base):
     company_id = Column(Integer, ForeignKey("companies.id", ondelete="SET NULL"), nullable=True)
     action = Column(String(255))
     details = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class Campaign(Base):
+    __tablename__ = "campaigns"
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(255))
+    status = Column(String(50), default="Analyzing") # Analyzing, In Flight, Paused, Completed
+    progress = Column(Integer, default=0)
+    color = Column(String(50), default="bg-blue-500")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class Alert(Base):
+    __tablename__ = "alerts"
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False)
+    type = Column(String(50)) # CHURN_RISK, DATA_SYNC, SYSTEM, SUCCESS
+    details = Column(Text)
+    is_read = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)

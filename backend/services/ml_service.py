@@ -10,27 +10,51 @@ class MLService:
     def identify_columns(df: pd.DataFrame) -> Dict[str, str]:
         """
         Dynamically identify columns based on common keywords.
+        Prioritizes numeric columns for revenue and usage.
         """
         mapping = {}
         cols = {c.lower(): c for c in df.columns}
         
-        # Target mapping
+        # Target mapping - Prioritized keywords
         keywords = {
-            'customer_id': ['id', 'cust', 'uuid', 'external'],
-            'name': ['name', 'full_name', 'client'],
+            'customer_id': ['customerid', 'id', 'cust', 'uuid', 'external'],
+            'name': ['name', 'full_name', 'client', 'gender'], 
             'email': ['email', 'mail', 'address'],
-            'revenue': ['rev', 'revenue', 'amount', 'spend', 'billing'],
-            'usage': ['usage', 'activity', 'engagement', 'score', 'points'],
-            'transactions': ['trans', 'count', 'orders', 'freq'],
-            'churn': ['churn', 'label', 'target', 'left', 'attrition']
+            'revenue': ['charges', 'amount', 'revenue', 'spend', 'price', 'billing'],
+            'usage': ['tenure', 'months', 'usage', 'activity', 'engagement', 'score', 'points'],
+            'transactions': ['trans', 'count', 'orders', 'freq', 'services', 'calls'],
+            'churn': ['churn', 'label', 'target', 'left', 'attrition', 'status']
         }
         
         for key, search_words in keywords.items():
+            best_match = None
             for word in search_words:
-                matched = [c for c in cols if word in c]
-                if matched:
-                    mapping[key] = cols[matched[0]]
+                matches = [cols[c] for c in cols if word in c]
+                if not matches: continue
+                
+                # If searching for numeric fields, prefer columns that are actually numeric
+                if key in ['revenue', 'usage', 'transactions']:
+                    numeric_matches = []
+                    for m in matches:
+                        # Sample check for numeric
+                        sample = pd.to_numeric(df[m].head(10), errors='coerce')
+                        if not sample.isna().all():
+                            numeric_matches.append(m)
+                    
+                    if numeric_matches:
+                        # For revenue, prefer 'Total' over 'Monthly' if both match
+                        if key == 'revenue':
+                            totals = [m for m in numeric_matches if 'total' in m.lower()]
+                            best_match = totals[0] if totals else numeric_matches[0]
+                        else:
+                            best_match = numeric_matches[0]
+                        break
+                else:
+                    best_match = matches[0]
                     break
+            
+            if best_match:
+                mapping[key] = best_match
         
         return mapping
 
@@ -45,9 +69,12 @@ class MLService:
         """
         mapping = MLService.identify_columns(df)
         
-        # Ensure we have enough features
+        # Prioritize preprocessed standardized columns if available
         features = ['revenue', 'usage', 'transactions']
-        available_features = [mapping[f] for f in features if f in mapping]
+        available_features = [f for f in features if f in df.columns]
+        
+        if not available_features:
+            available_features = [mapping[f] for f in features if f in mapping]
         
         if not available_features:
             raise ValueError("Insufficient feature columns identified in dataset.")
@@ -59,12 +86,16 @@ class MLService:
             
         # Target variable
         if 'churn' in mapping:
-            y = pd.to_numeric(df[mapping['churn']], errors='coerce').fillna(0).astype(int)
+            target_series = df[mapping['churn']].astype(str).str.lower()
+            y = target_series.apply(lambda x: 1 if x in ['yes', '1', 'true', 'churned'] else 0).values
         else:
             # Synthetic target for demonstration if 'churn' column is missing
             # Logic: Churn = 1 if engagement < 20th percentile
-            eng = (X.iloc[:, 0] * 0.4 + X.iloc[:, 1] * 0.6)
-            y = (eng < eng.quantile(0.2)).astype(int)
+            if not X.empty:
+                eng = (X.iloc[:, 0] * 0.4 + X.iloc[:, 1] * 0.6)
+                y = (eng < eng.quantile(0.2)).astype(int).values
+            else:
+                y = np.zeros(len(df))
 
         # Step: Split Data (Row-wise splitting as requested)
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -90,20 +121,34 @@ class MLService:
     @staticmethod
     def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
         """
-        Perform feature engineering as per requirements:
-        - usage_frequency
-        - avg_transaction_value
-        - engagement_score
+        Perform feature engineering safely.
         """
-        # Ensure numeric types
-        df['revenue'] = pd.to_numeric(df['revenue'], errors='coerce').fillna(0)
-        df['usage'] = pd.to_numeric(df['usage'], errors='coerce').fillna(0)
-        df['transactions'] = pd.to_numeric(df['transactions'], errors='coerce').fillna(0)
+        # Ensure we have numeric base columns even if they aren't named 'revenue', 'usage', etc.
+        mapping = MLService.identify_columns(df)
+        
+        rev_col = mapping.get('revenue')
+        use_col = mapping.get('usage')
+        tra_col = mapping.get('transactions')
 
-        # Feature Engineering
-        df['usage_frequency'] = df['transactions'] / df['usage'].replace(0, 1)
-        df['avg_transaction_value'] = df['revenue'] / df['transactions'].replace(0, 1)
-        df['engagement_score'] = (df['usage'] * 0.6) + (df['transactions'] * 0.4)
+        # Heuristic values if columns are missing
+        if rev_col: df['revenue_num'] = pd.to_numeric(df[rev_col], errors='coerce').fillna(0)
+        else: df['revenue_num'] = 0.0
+        
+        if use_col: df['usage_num'] = pd.to_numeric(df[use_col], errors='coerce').fillna(0)
+        else: df['usage_num'] = 1.0 # Avoid div by zero
+        
+        if tra_col: df['trans_num'] = pd.to_numeric(df[tra_col], errors='coerce').fillna(0)
+        else: df['trans_num'] = 0.0
+
+        # Feature Engineering using internal safe names
+        df['usage_frequency'] = df['trans_num'] / df['usage_num'].replace(0, 1)
+        df['avg_transaction_value'] = df['revenue_num'] / df['trans_num'].replace(0, 1)
+        df['engagement_score'] = (df['usage_num'] * 0.6) + (df['trans_num'] * 0.4)
+        
+        # Map back to expected output names for controllers
+        df['revenue'] = df['revenue_num']
+        df['usage'] = df['usage_num']
+        df['transactions'] = df['trans_num']
         
         return df
 
@@ -115,14 +160,17 @@ class MLService:
         """
         if df.empty: return df, {}
         
+        # Always preprocess to get standardized columns (revenue, usage, etc.)
+        df = MLService.preprocess_data(df)
+
         try:
             metrics, model, _ = MLService.train_model(df)
             mapping = MLService.identify_columns(df)
             
             # Map input to features for prediction
             features = ['revenue', 'usage', 'transactions']
-            available_features = [mapping[f] for f in features if f in mapping]
-            X = df[available_features].copy()
+            # Note: preprocess_data already created 'revenue', 'usage', 'transactions' columns
+            X = df[features].copy()
             for col in X.columns:
                 X[col] = pd.to_numeric(X[col], errors='coerce').fillna(0)
                 
@@ -131,14 +179,12 @@ class MLService:
             
             # Uplift Simulation
             df['uplift_score'] = df['churn_probability'] * 0.4
-            rev_col = mapping.get('revenue', df.columns[0])
-            df['revenue_at_risk'] = pd.to_numeric(df[rev_col], errors='coerce').fillna(0) * df['churn_probability']
+            df['revenue_at_risk'] = df['revenue'] * df['churn_probability']
             
             return df, metrics
         except Exception as e:
             print(f"ML Training Failed, falling back to heuristic: {e}")
-            df = MLService.preprocess_data(df)
             df['churn_probability'] = 0.5
             df['uplift_score'] = 0.1
-            df['revenue_at_risk'] = 0.0
+            df['revenue_at_risk'] = df['revenue'] * 0.5 # Sensible fallback
             return df, {"accuracy": 0, "error": str(e)}

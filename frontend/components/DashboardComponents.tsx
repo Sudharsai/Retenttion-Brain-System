@@ -22,21 +22,21 @@ export interface CustomerData {
 
 // --- Sub-components ---
 
-export function AlertTicker({ alerts }: { alerts: string[] }) {
+export function AlertTicker({ alerts }: { alerts: { type: string, details: string }[] }) {
   return (
     <div className="bg-blue-600/5 border-y border-white/5 py-2.5 overflow-hidden whitespace-nowrap relative backdrop-blur-sm">
       <div className="flex gap-12 animate-marquee inline-block">
         {alerts.map((alert, i) => (
           <span key={i} className="text-[10px] font-black text-blue-400/80 uppercase tracking-[0.3em] flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-[pulse_2s_infinite] shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
-            <span className="opacity-50">SYNC ALERT //</span> {alert}
+            <span className={`w-1.5 h-1.5 rounded-full ${alert.type === 'CHURN_RISK' ? 'bg-rose-500' : 'bg-blue-500'} animate-[pulse_2s_infinite] shadow-[0_0_8px_rgba(59,130,246,0.8)]`} />
+            <span className="opacity-50">{alert.type} //</span> {alert.details}
           </span>
         ))}
         {/* Duplicate for seamless loop */}
-        {alerts.map((alert, i) => (
+        {alerts.length > 0 && alerts.map((alert, i) => (
           <span key={`dup-${i}`} className="text-[10px] font-black text-blue-400/80 uppercase tracking-[0.3em] flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-[pulse_2s_infinite] shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
-            <span className="opacity-50">SYNC ALERT //</span> {alert}
+            <span className={`w-1.5 h-1.5 rounded-full ${alert.type === 'CHURN_RISK' ? 'bg-rose-500' : 'bg-blue-500'} animate-[pulse_2s_infinite] shadow-[0_0_8px_rgba(59,130,246,0.8)]`} />
+            <span className="opacity-50">{alert.type} //</span> {alert.details}
           </span>
         ))}
       </div>
@@ -45,7 +45,6 @@ export function AlertTicker({ alerts }: { alerts: string[] }) {
     </div>
   )
 }
-
 export function DrillDownModal({ 
   isOpen, 
   onClose, 
@@ -125,7 +124,7 @@ export function DrillDownModal({
           {data.length === 0 && (
             <div className="p-20 text-center flex flex-col items-center">
                <Database className="w-12 h-12 text-slate-800 mb-4" />
-               <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">No records detected in this neural sector</p>
+               <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">No records detected in this neural stream.</p>
             </div>
           )}
         </div>
@@ -133,8 +132,7 @@ export function DrillDownModal({
     </div>
   );
 }
-
-export function ImpactSimulator({ baseRevenue }: { baseRevenue: number }) {
+export function ImpactSimulator({ baseRevenue, onDeploy, loading }: { baseRevenue: number, onDeploy?: () => void, loading?: boolean }) {
   const [retentionLift, setRetentionLift] = React.useState(20);
   const projectedRecovery = React.useMemo(() => (baseRevenue * (retentionLift / 100)), [baseRevenue, retentionLift]);
 
@@ -175,8 +173,17 @@ export function ImpactSimulator({ baseRevenue }: { baseRevenue: number }) {
           </div>
         </div>
         
-        <button className="w-full py-3 bg-blue-600 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:scale-[1.02] active:scale-95 transition-all outline-none border-none">
-          Deploy Dynamic Campaign
+        <button 
+          onClick={onDeploy}
+          disabled={loading}
+          className={`w-full py-3 bg-blue-600 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:scale-[1.02] active:scale-95 transition-all outline-none border-none text-white cursor-pointer flex items-center justify-center gap-2 ${loading ? 'opacity-70 cursor-wait' : ''}`}
+        >
+          {loading ? (
+            <>
+              <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+              Mirroring Neural Sync...
+            </>
+          ) : 'Deploy Dynamic Campaign'}
         </button>
       </div>
     </div>

@@ -24,6 +24,8 @@ import { CampaignTimeline } from '../components/CampaignTimeline';
 import { ChurnRiskMap } from '../components/ChurnRiskMap';
 import OperationDashboard from '../components/OperationDashboard';
 import DataControlPanel from '../components/DataControlPanel';
+import DataStreamHub from '../components/DataStreamHub';
+import BaseConfigView from '../components/BaseConfigView';
 import { ChurnForecastEngine, ModelTrainingCenter, CampaignControlBase } from '../components/DashboardModules';
 import BIReportView from '../components/BIReportView';
 import { API_BASE_URL } from '../lib/config';
@@ -67,6 +69,7 @@ export default function Dashboard() {
     isOpen: false, title: '', data: [], type: 'total'
   });
   const [insights, setInsights] = useState<Insight[]>([]);
+  const [alerts, setAlerts] = useState<{type: string, details: string}[]>([]);
   const [activeTab, setActiveTab] = useState('dashboard');
 
   const handleLogout = () => {
@@ -148,6 +151,13 @@ export default function Dashboard() {
         setModelStats(statJson.data);
       }
 
+      // Fetch Alerts
+      const alertRes = await fetch(`${apiBase}/api/v1/analytics/alerts`, { headers: { 'Authorization': `Bearer ${token}` } });
+      const alertJson = await alertRes.json();
+      if (alertJson.success) {
+        setAlerts(alertJson.data);
+      }
+
     } catch (err) {
       console.error(err)
     } finally {
@@ -157,6 +167,16 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadInitialData();
+    // Poll for alerts every 30 seconds
+    const interval = setInterval(() => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            fetch(`${API_BASE_URL}/api/v1/analytics/alerts`, { headers: { 'Authorization': `Bearer ${token}` } })
+                .then(res => res.json())
+                .then(json => { if (json.success) setAlerts(json.data); });
+        }
+    }, 30000);
+    return () => clearInterval(interval);
   }, [loadInitialData]);
 
   const scatterData = useMemo(() => {
@@ -280,11 +300,9 @@ export default function Dashboard() {
       {/* Main Mission Control */}
       <main className="flex-1 flex flex-col h-screen overflow-y-auto relative p-0 grid-background">
         {/* Real-time Ticker */}
-        <AlertTicker alerts={[
-          "High risk churn detected in Singapore cluster",
-          "Uplift model retrained with 98% accuracy",
-          "Recovered $12,400 in revenue last 24h",
-          "Anomaly detected in 'Medium Risk' segment"
+        <AlertTicker alerts={alerts.length > 0 ? alerts : [
+          { type: 'SYSTEM', details: "Neural Link Establishing..." },
+          { type: 'SYSTEM', details: "Ready for identity ingestion" }
         ]} />
 
         {/* Global Glows */}
@@ -416,6 +434,9 @@ export default function Dashboard() {
                   Campaign Control Base
                </h2>
                <CampaignControlBase />
+                  <div className="xl:col-span-2">
+                     <DataControlPanel onRefresh={loadInitialData} />
+                  </div>
                <div className="mt-10">
                   <CampaignTimeline />
                </div>
@@ -435,71 +456,53 @@ export default function Dashboard() {
                   Tactical Alert Stream
                </h2>
                <div className="space-y-4">
-                  {[
-                    { time: '14:20:04', event: 'CRITICAL_CHURN_DETECTED', source: 'NODE_ALPHA_104', detail: 'High probability of departure for high-value segment in Singapore.' },
-                    { time: '13:45:12', event: 'MODEL_SYNC_COMPLETE', source: 'NEURAL_CORE', detail: 'Uplift model ensemble updated with latest transactional batch.' },
-                    { time: '12:30:55', event: 'CAMPAIGN_INTERCEPT_SUCCESS', source: 'STRATEGY_ENGINE', detail: 'Target "Node_Retail_04" responded positively to personalized ROI offer.' },
-                    { time: '11:15:20', event: 'ANOMALY_LEVEL_SIGMA', source: 'AUTO_SENTINEL', detail: 'Unusual retention pattern detected in European "Sleeping Dog" segment.' }
-                  ].map((alert, i) => (
-                    <div key={i} className="p-6 bg-white/5 rounded-2xl border border-white/5 flex gap-6 items-start hover:border-blue-500/20 transition-all group">
-                       <div className="text-[10px] font-black text-slate-500 font-mono mt-1">{alert.time}</div>
-                       <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-1">
-                             <span className="text-xs font-black text-blue-400 uppercase tracking-widest">{alert.event}</span>
-                             <span className="text-[8px] font-bold px-2 py-0.5 bg-white/5 rounded text-slate-500 border border-white/5">SOURCE: {alert.source}</span>
-                          </div>
-                          <p className="text-[11px] text-slate-400 group-hover:text-slate-200 transition-colors uppercase tracking-tight">{alert.detail}</p>
-                       </div>
-                       <div className="p-2 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition-colors">
-                          <ChevronRight className="w-4 h-4 text-blue-500" />
-                       </div>
-                    </div>
-                  ))}
+                  {alerts.length === 0 ? (
+                    <p className="text-slate-500 font-bold uppercase tracking-widest text-xs p-10 text-center glass-card rounded-2xl">No recent alerts detected in the neural stream.</p>
+                  ) : (
+                    alerts.map((alert: any, i) => (
+                      <div key={i} className="p-6 bg-white/5 rounded-2xl border border-white/5 flex gap-6 items-start hover:border-blue-500/20 transition-all group">
+                        <div className="text-[10px] font-black text-slate-500 font-mono mt-1">
+                            {new Date(alert.created_at).toLocaleTimeString()}
+                        </div>
+                        <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-1">
+                                <span className={`text-xs font-black uppercase tracking-widest ${alert.type === 'CHURN_RISK' ? 'text-rose-500' : 'text-blue-400'}`}>
+                                    {alert.type}
+                                </span>
+                                <span className="text-[8px] font-bold px-2 py-0.5 bg-white/5 rounded text-slate-500 border border-white/5">PRIORITY: HIGH</span>
+                            </div>
+                            <p className="text-[11px] text-slate-400 group-hover:text-slate-200 transition-colors uppercase tracking-tight">{alert.details}</p>
+                        </div>
+                        <div className="p-2 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition-colors">
+                            <ChevronRight className="w-4 h-4 text-blue-500" />
+                        </div>
+                      </div>
+                    ))
+                  )}
                </div>
             </div>
           ) : activeTab === 'settings' ? (
             <div className="px-10 py-10 space-y-10 animate-in fade-in duration-500">
-               <h2 className="text-3xl font-black mb-6 flex items-center gap-4">
-                  <Settings className="w-8 h-8 text-slate-400" />
-                  Global System Configuration
-               </h2>
-               <div className="grid grid-cols-1 xl:grid-cols-3 gap-10">
-                  <div className="xl:col-span-2">
-                     <DataControlPanel />
-                  </div>
-                  <div className="space-y-6">
-                     <div className="glass-card p-8 rounded-[2rem] border border-white/5">
-                        <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-6">Neural Parameters</h3>
-                        <div className="space-y-4">
-                           <div className="flex justify-between items-center">
-                              <span className="text-xs font-bold text-slate-300">Auto-Retrain Cycle</span>
-                              <div className="h-6 w-12 bg-blue-600 rounded-full relative"><div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full" /></div>
-                           </div>
-                           <div className="flex justify-between items-center">
-                              <span className="text-xs font-bold text-slate-300">Anomaly Detection</span>
-                              <div className="h-6 w-12 bg-blue-600 rounded-full relative"><div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full" /></div>
-                           </div>
-                           <div className="flex justify-between items-center opacity-40">
-                              <span className="text-xs font-bold text-slate-300">Edge Ingestion</span>
-                              <div className="h-6 w-12 bg-white/10 rounded-full relative"><div className="absolute left-1 top-1 w-4 h-4 bg-white/20 rounded-full" /></div>
-                           </div>
-                        </div>
-                     </div>
-                     <div className="glass-card p-8 rounded-[2rem] border border-white/5 bg-blue-500/5">
-                        <h3 className="text-xs font-black text-blue-500/50 uppercase tracking-widest mb-4">Core Identification</h3>
-                        <p className="text-[10px] font-bold text-slate-500 leading-relaxed">
-                           Current Node: <span className="text-blue-400">RETENTION_BRAIN_V2_PROD</span><br/>
-                           Authorized Identity: <span className="text-white">{localStorage.getItem('username')}</span><br/>
-                           Organization: <span className="text-white">{localStorage.getItem('company_name')}</span>
-                        </p>
-                     </div>
+               <div className="flex justify-between items-end mb-8">
+                  <div>
+                    <h2 className="text-4xl font-black text-white tracking-tight">Global System Configuration</h2>
+                    <p className="text-slate-500 font-bold text-xs uppercase tracking-[0.4em] mt-2">Strategic Neural Node Settings</p>
                   </div>
                </div>
+               <BaseConfigView />
             </div>
           ) : activeTab === 'reports' ? (
             <BIReportView />
           ) : activeTab === 'data' ? (
-            <DataControlPanel />
+            <div className="px-0 py-10 space-y-10 animate-in fade-in duration-500">
+               <div className="px-10 flex justify-between items-end mb-8">
+                  <div>
+                    <h2 className="text-4xl font-black text-white tracking-tight">Intelligence Data Stream</h2>
+                    <p className="text-slate-500 font-bold text-xs uppercase tracking-[0.4em] mt-2">Neural Ingestion Pipeline Control</p>
+                  </div>
+               </div>
+               <DataStreamHub onRefresh={loadInitialData} />
+            </div>
           ) : (
             <div className="px-10 py-20 flex flex-col items-center justify-center text-center">
                <div className="p-6 bg-white/5 rounded-3xl mb-8 border border-white/10">

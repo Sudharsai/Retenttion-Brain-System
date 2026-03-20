@@ -9,6 +9,7 @@ import {
 import { KPICard, ImpactSimulator, StatItem, MetricType } from './DashboardComponents'
 import { CampaignTimeline } from './CampaignTimeline'
 import { ChurnRiskMap } from './ChurnRiskMap'
+import { API_BASE_URL } from '../lib/config'
 
 interface OperationDashboardProps {
   metrics: {
@@ -45,6 +46,27 @@ export default function OperationDashboard({
   metrics, onDrillDown, scatterData, modelStats, insights, 
   hideHeader = false, hideKPIs = false 
 }: OperationDashboardProps) {
+  const [deploying, setDeploying] = React.useState(false)
+
+  const handleDeployCampaign = async () => {
+    setDeploying(true)
+    try {
+      const token = localStorage.getItem('token')
+      const res = await fetch(`${API_BASE_URL}/api/v1/analytics/intervene`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (res.ok) {
+        const json = await res.json()
+        alert(`Neural Strategy Deployed! ROI Potential: ${(metrics?.revenue_at_risk || 0).toLocaleString()} targeted across ${json.intervened_count || 'Neural Grid'}`)
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setDeploying(false)
+    }
+  }
+
   return (
     <div className={`${hideHeader ? 'px-0 py-0' : 'px-10 py-10'} space-y-12 w-full max-w-[1700px] mx-auto relative`}>
       {/* Background Mission Control Glows */}
@@ -142,7 +164,11 @@ export default function OperationDashboard({
         </div>
 
         <div className="xl:col-span-2 space-y-10">
-          <ImpactSimulator baseRevenue={metrics?.revenue_at_risk || 0} />
+          <ImpactSimulator 
+            baseRevenue={metrics?.revenue_at_risk || 0} 
+            onDeploy={handleDeployCampaign}
+            loading={deploying}
+          />
           
           {/* Model Performance Tracker */}
           <div className="glass-card rounded-[2.5rem] p-8 border border-white/5 relative overflow-hidden bg-blue-600/5">

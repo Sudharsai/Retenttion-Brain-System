@@ -44,6 +44,13 @@ def get_revenue_risk(db: Session = Depends(get_db), user: dict = Depends(get_cur
         "data": customer_controller.get_revenue_risk_details(db, user["cid"])
     }
 
+@router.get("/campaign-timeline")
+def get_timeline(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    return {
+        "success": True,
+        "data": customer_controller.get_campaign_timeline(db, user["cid"])
+    }
+
 @router.post("/upload-csv")
 async def upload_dataset(
     file: UploadFile = File(...), 

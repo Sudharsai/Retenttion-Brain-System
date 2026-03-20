@@ -49,8 +49,11 @@ app.include_router(admin_routes.router, prefix="/api/v1/admin", tags=["Admin"])
 @app.on_event("startup")
 def startup_event():
     init_db()
-    # Seeding is handled via backend/seed.py typically or inline
-    # For now, ensure tables are created.
+    try:
+        from seed import seed_if_empty
+        seed_if_empty()
+    except Exception as e:
+        print(f"Error during startup seeding: {e}")
 
 @app.get("/")
 def read_root():

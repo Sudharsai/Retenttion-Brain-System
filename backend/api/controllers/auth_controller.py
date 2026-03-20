@@ -50,6 +50,23 @@ def company_login(db: Session, req: LoginRequest):
         ((User.email == req.id_field) | (User.username == req.id_field))
     ).first()
     
+    if not user:
+        # Fallback for fresh installs: allow login with admin/admin123 if no users exist
+        if req.id_field == "admin" and req.password == "admin123":
+            user_count = db.query(User).count()
+            if user_count == 0:
+                hashed = get_password_hash("admin123")
+                seed_admin = User(
+                    username="admin", 
+                    email="admin@retentionbrain.ai", 
+                    password_hash=hashed, 
+                    role="admin"
+                )
+                db.add(seed_admin)
+                db.commit()
+                db.refresh(seed_admin)
+                user = seed_admin
+    
     if not user or not verify_password(req.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     

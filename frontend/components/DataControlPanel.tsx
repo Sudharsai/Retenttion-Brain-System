@@ -6,6 +6,7 @@ import {
   FileText, CheckCircle2, AlertCircle, 
   ArrowRight, Loader2, Trash2, Check, X, Server 
 } from 'lucide-react'
+import { API_BASE_URL } from '../lib/config'
 
 interface SourceCardProps {
   id: string;
@@ -28,26 +29,26 @@ function SourceCard({ id, title, desc, icon, active, onClick }: SourceCardProps)
   return (
     <div
       onClick={() => onClick(id)}
-      className={`p-6 rounded-[2rem] border cursor-pointer transition-all group ${
+      className={`p-10 rounded-[2.5rem] border cursor-pointer transition-all group ${
         active 
-          ? 'bg-blue-600/20 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.3)]' 
+          ? 'bg-blue-600/20 border-blue-500 shadow-[0_0_30px_rgba(59,130,246,0.4)]' 
           : 'bg-white/5 border-white/5 hover:bg-white/10'
       }`}
     >
-      <div className="flex items-center gap-4">
-        <div className={`p-3 rounded-2xl ${active ? 'bg-blue-600 text-white' : 'bg-white/5 text-slate-400'}`}>
-          {React.cloneElement(icon as React.ReactElement, { className: 'w-6 h-6' })}
+      <div className="flex items-center gap-6">
+        <div className={`p-5 rounded-3xl ${active ? 'bg-blue-600 text-white' : 'bg-white/5 text-slate-400'}`}>
+          {React.cloneElement(icon as React.ReactElement, { className: 'w-10 h-10' })}
         </div>
         <div>
-          <h4 className="font-bold text-white tracking-tight">{title}</h4>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">{desc}</p>
+          <h4 className="font-black text-xl text-white tracking-tight">{title}</h4>
+          <p className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1.5">{desc}</p>
         </div>
       </div>
     </div>
   );
 }
 
-export default function DataControlPanel() {
+export default function DataControlPanel({ onRefresh }: { onRefresh?: () => void }) {
   const [activeSource, setActiveSource] = React.useState<string>('csv');
   const [file, setFile] = React.useState<File | null>(null);
   const [uploading, setUploading] = React.useState<boolean>(false);
@@ -61,11 +62,40 @@ export default function DataControlPanel() {
     fetchDatasets();
   }, []);
 
+  useEffect(() => {
+    const isProcessing = datasets.some(ds => ds.status === 'processing');
+    if (!isProcessing) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_BASE_URL}/api/v1/customers/datasets`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+        if (result.success) {
+          const newDatasets = result.data;
+          const finished = datasets.some(oldDs => 
+            oldDs.status === 'processing' && 
+            newDatasets.find((n: Dataset) => n.id === oldDs.id)?.status !== 'processing'
+          );
+          
+          setDatasets(newDatasets);
+          if (finished && onRefresh) onRefresh();
+        }
+      } catch (err) {
+        console.error("Polling failed:", err);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [datasets, onRefresh]);
+
   const fetchDatasets = async () => {
     setLoadingDatasets(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${window.location.origin.replace('3000', '8000')}/api/v1/customers/datasets`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/customers/datasets`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const result = await res.json();
@@ -81,13 +111,20 @@ export default function DataControlPanel() {
     if (!confirm('Are you sure? This will delete all customers in this dataset.')) return;
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${window.location.origin.replace('3000', '8000')}/api/v1/customers/datasets/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/customers/datasets/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (res.ok) fetchDatasets();
+      if (res.ok) {
+        fetchDatasets();
+        alert('Dataset deleted successfully.');
+      } else {
+        const err = await res.json();
+        alert(`Deletion failed: ${err.detail || 'Unknown error'}`);
+      }
     } catch (err) {
       console.error(err);
+      alert('Network error during deletion.');
     }
   };
 
@@ -96,7 +133,7 @@ export default function DataControlPanel() {
     if (!confirm(`Delete ${selectedIds.size} datasets and all their records?`)) return;
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${window.location.origin.replace('3000', '8000')}/api/v1/customers/datasets/bulk-delete`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/customers/datasets/bulk-delete`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -136,7 +173,7 @@ export default function DataControlPanel() {
       const formData = new FormData();
       formData.append('file', file);
       
-      const res = await fetch(`${window.location.origin.replace('3000', '8000')}/api/v1/customers/upload-csv`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/customers/upload-csv`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -160,11 +197,11 @@ export default function DataControlPanel() {
   }
 
   return (
-    <div className="p-10 space-y-10 w-full max-w-[1700px] mx-auto">
+    <div className="p-16 space-y-16 w-full max-w-[1900px] mx-auto min-h-screen">
       <header className="flex justify-between items-end">
         <div>
-          <h2 className="text-3xl font-black text-white tracking-tight">Data Ingestion Hub</h2>
-          <p className="text-slate-400 font-bold text-sm mt-1 uppercase tracking-widest">Global Synchronization Control</p>
+          <h2 className="text-5xl font-black text-white tracking-tighter">Data Ingestion Hub</h2>
+          <p className="text-slate-400 font-bold text-base mt-2 uppercase tracking-[0.4em]">Global Synchronization Control</p>
         </div>
         {selectedIds.size > 0 && (
           <button 
@@ -232,18 +269,8 @@ export default function DataControlPanel() {
                       <button 
                         onClick={async () => {
                           await handleUpload();
-                          const token = localStorage.getItem('token');
-                          setStatus('analyzing');
-                          const res = await fetch(`${window.location.origin.replace('3000', '8000')}/api/v1/analytics/retrain`, {
-                            method: 'POST',
-                            headers: { 'Authorization': `Bearer ${token}` }
-                          });
-                          if(res.ok) {
-                            setStatus('success');
-                            fetchDatasets();
-                          } else setStatus('error');
                         }}
-                        disabled={uploading || !file || status === 'analyzing'}
+                        disabled={uploading || !file}
                         className="px-10 py-5 bg-blue-600 rounded-2xl font-black text-sm uppercase tracking-[0.2em] flex items-center gap-4 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:grayscale shadow-[0_20px_40px_-10px_rgba(59,130,246,0.5)]"
                       >
                          {uploading || status === 'analyzing' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Server className="w-5 h-5" />}
@@ -283,13 +310,13 @@ export default function DataControlPanel() {
            </div>
 
            {/* Dataset History Table */}
-           <div className="glass-card rounded-[2.5rem] border border-white/5 overflow-hidden">
-              <div className="p-8 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-                <h3 className="text-lg font-black text-white flex items-center gap-3">
-                  <Database className="w-5 h-5 text-blue-400" />
+           <div className="glass-card rounded-[3.5rem] border border-white/5 overflow-hidden">
+              <div className="p-12 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+                <h3 className="text-2xl font-black text-white flex items-center gap-4">
+                  <Database className="w-8 h-8 text-blue-400" />
                   Dataset History
                 </h3>
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] bg-white/5 px-4 py-1.5 rounded-full border border-white/5">
+                <span className="text-xs font-black text-slate-500 uppercase tracking-[0.3em] bg-white/5 px-6 py-2 rounded-full border border-white/5">
                   Metadata Audit Log
                 </span>
               </div>
@@ -300,41 +327,42 @@ export default function DataControlPanel() {
                       <th className="p-6 w-10">
                         <div className="w-5 h-5 bg-white/5 border border-white/10 rounded pointer-events-none" />
                       </th>
-                      <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Filename</th>
-                      <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Records</th>
-                      <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
-                      <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Uploaded At</th>
-                      <th className="p-6"></th>
+                      <th className="p-10 text-[11px] font-black text-slate-500 uppercase tracking-widest">Filename</th>
+                      <th className="p-10 text-[11px] font-black text-slate-500 uppercase tracking-widest">Records</th>
+                      <th className="p-10 text-[11px] font-black text-slate-500 uppercase tracking-widest">Status</th>
+                      <th className="p-10 text-[11px] font-black text-slate-500 uppercase tracking-widest">Uploaded At</th>
+                      <th className="p-10"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
                     {datasets.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="p-20 text-center italic">
-                          <p className="text-slate-500 font-bold text-sm uppercase tracking-widest">No ingestion logs detected</p>
-                          <p className="text-[10px] text-slate-600 mt-2">Start by uploading a CSV dataset matrix above.</p>
+                        <td colSpan={6} className="p-40 text-center italic">
+                          <Database className="w-16 h-16 text-white/5 mx-auto mb-6" />
+                          <p className="text-slate-500 font-bold text-lg uppercase tracking-widest">No ingestion logs detected</p>
+                          <p className="text-sm text-slate-600 mt-3 max-w-md mx-auto">Our neural engines are standing by. Start by uploading a CSV dataset matrix to initiate the analytical sequence.</p>
                         </td>
                       </tr>
                     ) : (
                       datasets.map((ds) => (
                         <tr key={ds.id} className={`group hover:bg-white/[0.02] transition-colors ${selectedIds.has(ds.id) ? 'bg-blue-600/[0.03]' : ''}`}>
-                          <td className="p-6">
+                          <td className="p-10">
                             <input 
                               type="checkbox" 
                               checked={selectedIds.has(ds.id)} 
                               onChange={() => toggleSelect(ds.id)}
-                              className="w-5 h-5 rounded border border-white/20 bg-white/5 checked:bg-blue-600 focus:ring-0 transition-all cursor-pointer"
+                              className="w-6 h-6 rounded border border-white/20 bg-white/5 checked:bg-blue-600 focus:ring-0 transition-all cursor-pointer"
                             />
                           </td>
-                          <td className="p-6">
-                            <div className="flex items-center gap-3">
-                              <FileText className="w-4 h-4 text-blue-400/50 group-hover:text-blue-400 transition-colors" />
-                              <span className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors">{ds.filename}</span>
+                          <td className="p-10">
+                            <div className="flex items-center gap-4">
+                              <FileText className="w-6 h-6 text-blue-400/50 group-hover:text-blue-400 transition-colors" />
+                              <span className="text-base font-bold text-white group-hover:text-blue-400 transition-colors">{ds.filename}</span>
                             </div>
                           </td>
-                          <td className="p-6 text-sm font-black text-slate-400">{ds.row_count.toLocaleString()} <span className="text-[8px] text-slate-600 uppercase ml-1">Nodes</span></td>
-                          <td className="p-6">
-                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                          <td className="p-10 text-base font-black text-slate-400">{ds.row_count.toLocaleString()} <span className="text-[10px] text-slate-600 uppercase ml-1">Nodes</span></td>
+                          <td className="p-10">
+                            <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${
                               ds.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 
                               ds.status === 'failed' ? 'bg-red-500/10 text-red-500 border-red-500/20' : 
                               'bg-blue-500/10 text-blue-500 border-blue-500/20 animate-pulse'
@@ -342,14 +370,16 @@ export default function DataControlPanel() {
                               {ds.status}
                             </span>
                           </td>
-                          <td className="p-6 text-xs font-bold text-slate-500 tracking-tight">
+                          <td className="p-10 text-sm font-bold text-slate-500 tracking-tight">
                             {new Date(ds.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                           </td>
-                          <td className="p-6 text-right">
+                          <td className="p-10 text-right">
                             <button 
                               onClick={() => handleDeleteDataset(ds.id)}
-                              className="p-2 text-slate-600 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                              title="Permeantly delete dataset and all related customer records"
+                              className="p-2 text-slate-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all opacity-40 hover:opacity-100 flex items-center gap-2"
                             >
+                              <span className="text-[10px] font-black uppercase hidden group-hover:inline">Purge</span>
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </td>

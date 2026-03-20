@@ -27,8 +27,10 @@ export default function Login() {
             if (res.ok && result.access_token) {
                 localStorage.setItem('token', result.access_token)
                 localStorage.setItem('role', result.role)
-                localStorage.setItem('company_id', result.company_id?.toString() || '')
-                localStorage.setItem('company_name', result.company_name || '')
+                // Store company info if available, otherwise it's likely an admin
+                localStorage.setItem('company_id', result.company_id?.toString() || '0')
+                localStorage.setItem('company_name', result.company_name || 'Platform Admin')
+                localStorage.setItem('username', result.username || '')
                 
                 if (result.role === 'super_admin') {
                     window.location.href = '/super-admin'
@@ -38,7 +40,8 @@ export default function Login() {
                     window.location.href = '/'
                 }
             } else {
-                setError(result.detail || 'Access denied. Verify your credentials.')
+                const errorMsg = result.detail || 'Access denied. Verify your credentials.'
+                setError(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg))
             }
         } catch (err) {
             setError('Connection failed. Central Intelligence Hub is offline.')
