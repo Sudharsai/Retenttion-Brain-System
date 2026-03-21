@@ -195,23 +195,23 @@ export function KPICard({
   return (
     <div 
       onClick={() => onClick(type)}
-      className="glass-card p-7 rounded-[2.5rem] cursor-pointer group relative overflow-hidden border border-white/5 hover:border-blue-500/30 transition-all duration-500 hover:shadow-[0_0_40px_rgba(59,130,246,0.1)]"
+      className="glass-card p-6 rounded-[2rem] cursor-pointer group relative overflow-hidden border border-white/5 hover:border-blue-500/30 transition-all duration-500 hover:shadow-[0_0_40px_rgba(59,130,246,0.1)]"
     >
-      <div className={`absolute top-0 right-0 p-6 opacity-5 transition-all duration-700 group-hover:opacity-20 group-hover:scale-125 ${colorClass}`}>
+      <div className={`absolute top-0 right-0 p-5 opacity-5 transition-all duration-700 group-hover:opacity-20 group-hover:scale-125 ${colorClass}`}>
         {icon}
       </div>
-      <div className="flex justify-between items-start mb-8 relative z-10">
-        <div className={`p-4 rounded-2xl bg-white/5 border border-white/10 shadow-inner group-hover:scale-110 transition-transform duration-500 ${colorClass}`}>
-          {React.cloneElement(icon as React.ReactElement, { className: 'w-6 h-6' })}
+      <div className="flex justify-between items-start mb-6 relative z-10">
+        <div className={`p-3 rounded-xl bg-white/5 border border-white/10 shadow-inner group-hover:scale-110 transition-transform duration-500 ${colorClass}`}>
+          {React.cloneElement(icon as React.ReactElement, { className: 'w-5 h-5' })}
         </div>
-        <div className="flex items-center gap-1.5 text-[8px] font-black text-emerald-400 bg-emerald-400/10 px-3 py-1.5 rounded-full border border-emerald-400/20 tracking-[0.2em] shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+        <div className="flex items-center gap-1.5 text-[7px] font-black text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded-full border border-emerald-400/20 tracking-[0.2em] shadow-[0_0_15px_rgba(16,185,129,0.1)]">
           <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
           READY
         </div>
       </div>
-      <div className="space-y-1.5 relative z-10 overflow-hidden">
-        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] group-hover:text-slate-400 transition-colors">{title}</p>
-        <h3 className={`${(value?.length || 0) > 12 ? 'text-2xl' : 'text-4xl'} font-black text-white tracking-tighter group-hover:vibrant-text transition-all duration-500 truncate`}>
+      <div className="space-y-1 relative z-10 overflow-hidden">
+        <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em] group-hover:text-slate-400 transition-colors">{title}</p>
+        <h3 className={`${String(value || '').length > 8 ? 'text-lg' : 'text-xl'} font-black text-white tracking-tighter group-hover:vibrant-text transition-all duration-500 truncate`}>
           {value || '0'}
         </h3>
       </div>

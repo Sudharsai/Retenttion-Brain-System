@@ -65,7 +65,7 @@ export default function OperationDashboard({
           <KPICard 
             type="total"
             title="Identity Census" 
-            value={metrics?.total_customers?.toLocaleString()} 
+            value={Math.round(metrics?.total_customers || 0).toLocaleString()} 
             icon={<Users className="w-7 h-7" />} 
             trend="+8.2% Periodic Lift"
             colorClass="text-blue-400"
@@ -74,7 +74,7 @@ export default function OperationDashboard({
           <KPICard 
             type="high_risk"
             title="Critical Vulnerability" 
-            value={metrics?.high_risk_customers?.toLocaleString()} 
+            value={Math.round(metrics?.high_risk_customers || 0).toLocaleString()} 
             icon={<ShieldAlert className="w-7 h-7" />} 
             trend="Priority Intercept required"
             colorClass="text-rose-500"
@@ -83,7 +83,7 @@ export default function OperationDashboard({
           <KPICard 
             type="persuadable"
             title="Persuadable Core" 
-            value={metrics?.persuadables?.toLocaleString()} 
+            value={Math.round(metrics?.persuadables || 0).toLocaleString()} 
             icon={<Zap className="w-7 h-7" />} 
             trend="High response elasticity"
             colorClass="text-emerald-400"
@@ -92,7 +92,7 @@ export default function OperationDashboard({
           <KPICard 
             type="revenue_risk"
             title="Revenue Exposure" 
-            value={`$${metrics?.revenue_at_risk?.toLocaleString()}`} 
+            value={`$${Math.round(metrics?.revenue_at_risk || 0).toLocaleString()}`} 
             icon={<Target className="w-7 h-7" />} 
             trend="At-risk volume detected"
             colorClass="text-amber-400"
