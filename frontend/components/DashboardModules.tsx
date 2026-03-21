@@ -41,11 +41,12 @@ export function ChurnForecastEngine() {
 
         if (kpiJson.success && kpiJson.data.total_customers > 0) {
           const d = kpiJson.data
-          setKpis(d)
+          const prob = d.avg_churn_prob > 1 ? d.avg_churn_prob / 100 : d.avg_churn_prob
+          setKpis({ ...d, avg_churn_prob: prob })
           setDistribution([
-            { range: '0-20%', count: Math.floor(d.total_customers * (1 - d.avg_churn_prob) * 0.5), color: '#10b981' },
-            { range: '20-40%', count: Math.floor(d.total_customers * (1 - d.avg_churn_prob) * 0.3), color: '#3b82f6' },
-            { range: '40-60%', count: Math.floor(d.total_customers * d.avg_churn_prob * 0.4), color: '#f59e0b' },
+            { range: '0-20%', count: Math.floor(d.total_customers * (1 - prob) * 0.5), color: '#10b981' },
+            { range: '20-40%', count: Math.floor(d.total_customers * (1 - prob) * 0.3), color: '#3b82f6' },
+            { range: '40-60%', count: Math.floor(d.total_customers * prob * 0.4), color: '#f59e0b' },
             { range: '60-80%', count: Math.floor(d.high_risk_customers * 0.6), color: '#ef4444' },
             { range: '80-100%', count: Math.floor(d.high_risk_customers * 0.4), color: '#7f1d1d' },
           ])
