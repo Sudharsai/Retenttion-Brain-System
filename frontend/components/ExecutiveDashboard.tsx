@@ -36,53 +36,79 @@ interface DashboardMetrics {
   high_risk_customers: number;
   avg_churn_prob: number;
   revenue_at_risk: number;
+  persuadables: number;
 }
 
-interface ExecutiveKPICardProps {
-  title: string;
-  value: string | number;
-  trend: string;
-  positive: boolean;
-  icon: React.ReactNode;
-  color: string;
+interface ExecutiveMetrics {
+  metrics: {
+    nrr: number;
+    monthly_churn: number;
+    annual_churn: number;
+    avg_ltv: number;
+    total_ltv: number;
+    portfolio_revenue: number;
+    revenue_at_risk: number;
+    expected_roi: number;
+    recovery_potential: number;
+  };
+  trajectories: {
+    churn: number[];
+    ltv: number[];
+  };
 }
 
-export function ExecutiveDashboard({ metrics }: { metrics: DashboardMetrics | null }) {
+export function ExecutiveDashboard({ 
+  metrics, 
+  executiveData 
+}: { 
+  metrics: DashboardMetrics | null;
+  executiveData: ExecutiveMetrics | null;
+}) {
+  const chartData = useMemo(() => {
+    if (!executiveData) return Array(6).fill(0).map((_, i) => ({ month: `M${i+1}`, rate: 0, ltv: 0 }));
+    const months = ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
+    return executiveData.trajectories.churn.map((rate, i) => ({
+      month: months[i] || `M${i+1}`,
+      rate,
+      ltv: executiveData.trajectories.ltv[i]
+    }));
+  }, [executiveData]);
+
+  const exec = executiveData?.metrics;
+
   return (
     <div className="space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-1000 w-full max-w-[1700px] mx-auto relative">
-      {/* Subtle Professional Gradients */}
       <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-slate-400/5 rounded-full blur-[150px] pointer-events-none -z-10" />
       
-      {/* Top Row: Business KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
         <ExecutiveKPICard 
           title="Net Retention Rate" 
-          value="104.2%" 
-          trend="+2.1%" 
-          positive={true}
+          value={`${exec?.nrr || 0}%`} 
+          trend={`${((exec?.nrr || 100) - 100).toFixed(1)}%`} 
+          positive={(exec?.nrr || 0) >= 100}
           icon={<Briefcase className="w-6 h-6" />}
           color="text-blue-400"
         />
         <ExecutiveKPICard 
           title="Churn Rate (Avg)" 
-          value={metrics ? `${(metrics.avg_churn_prob * 100).toFixed(1)}%` : "2.4%"} 
-          trend="-0.5%" 
+          value={`${exec?.monthly_churn || 0}%`} 
+          trend="Current Period" 
           positive={true}
           icon={<TrendingUp className="w-6 h-6" />}
           color="text-emerald-400"
         />
         <ExecutiveKPICard 
           title="Customer LTV" 
-          value={metrics ? `$${(metrics.revenue_at_risk / 100).toFixed(0)}` : "$1,620"} 
-          trend="+12%" 
+          value={`$${(exec?.avg_ltv || 0).toLocaleString()}`} 
+          trend="+Projected" 
           positive={true}
           icon={<DollarSign className="w-6 h-6" />}
           color="text-indigo-400"
         />
         <ExecutiveKPICard 
           title="Campaign ROI" 
-          value="5.2x" 
-          trend="+0.8x" 
+          value={`${(exec?.expected_roi || 0).toFixed(1)}%`} 
+          trend="Strategy Forecast" 
           positive={true}
           icon={<Target className="w-6 h-6" />}
           color="text-amber-400"
@@ -90,28 +116,17 @@ export function ExecutiveDashboard({ metrics }: { metrics: DashboardMetrics | nu
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
-        {/* Churn vs LTV Trend */}
-        <div className="glass-card p-10 rounded-[2.5rem] border border-white/5 shadow-xl hover:border-slate-500/20 transition-all duration-500">
+        <div className="glass-card p-10 rounded-[2.5rem] border border-white/5 shadow-xl">
           <div className="flex justify-between items-center mb-10">
             <div>
               <h3 className="text-2xl font-black text-white tracking-tight">Churn & LTV Trajectory</h3>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.3em] mt-2">6-Month Business Performance Sync</p>
-            </div>
-            <div className="flex gap-6">
-               <div className="flex items-center gap-2">
-                 <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.4)]" />
-                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">LTV ($)</span>
-               </div>
-               <div className="flex items-center gap-2">
-                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)]" />
-                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Churn (%)</span>
-               </div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em] mt-2">Neural Prediction Stream</p>
             </div>
           </div>
 
           <div className="h-[400px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={churnTrendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorLtv" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2}/>
@@ -123,15 +138,12 @@ export function ExecutiveDashboard({ metrics }: { metrics: DashboardMetrics | nu
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
-                <XAxis dataKey="month" stroke="#475569" fontSize={10} fontWeight="black" tickLine={false} axisLine={false} dy={10} />
-                <YAxis yAxisId="left" stroke="#3b82f6" fontSize={10} fontWeight="black" tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
-                <YAxis yAxisId="right" orientation="right" stroke="#10b981" fontSize={10} fontWeight="black" tickLine={false} axisLine={false} tickFormatter={(value) => `${value}%`} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff10', borderRadius: '16px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
-                  itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
-                />
-                <Area yAxisId="left" type="monotone" dataKey="ltv" stroke="#3b82f6" fillOpacity={1} fill="url(#colorLtv)" strokeWidth={4} dot={{ r: 4, fill: '#3b82f6', strokeWidth: 2, stroke: '#0f172a' }} activeDot={{ r: 6, strokeWidth: 0 }} />
-                <Area yAxisId="right" type="monotone" dataKey="rate" stroke="#10b981" fillOpacity={1} fill="url(#colorChurn)" strokeWidth={4} dot={{ r: 4, fill: '#10b981', strokeWidth: 2, stroke: '#0f172a' }} activeDot={{ r: 6, strokeWidth: 0 }} />
+                <XAxis dataKey="month" stroke="#94a6b8" fontSize={10} fontWeight="black" />
+                <YAxis yAxisId="left" stroke="#3b82f6" fontSize={10} fontWeight="black" tickFormatter={(v) => `$${v}`} />
+                <YAxis yAxisId="right" orientation="right" stroke="#10b981" fontSize={10} fontWeight="black" tickFormatter={(v) => `${v}%`} />
+                <Tooltip contentStyle={{ backgroundColor: '#0f17 slate-900', border: 'none', borderRadius: '16px' }} />
+                <Area yAxisId="left" type="monotone" dataKey="ltv" stroke="#3b82f6" fill="url(#colorLtv)" strokeWidth={4} />
+                <Area yAxisId="right" type="monotone" dataKey="rate" stroke="#10b981" fill="url(#colorChurn)" strokeWidth={4} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -142,7 +154,7 @@ export function ExecutiveDashboard({ metrics }: { metrics: DashboardMetrics | nu
            <div className="flex justify-between items-center mb-10">
             <div>
               <h3 className="text-2xl font-black text-white tracking-tight">Campaign Efficiency Index</h3>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.3em] mt-2">ROI by Retention Channel</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em] mt-2">ROI by Retention Channel</p>
             </div>
             <div className="p-3 bg-amber-400/10 rounded-2xl">
               <BarChart3 className="w-6 h-6 text-amber-400" />
@@ -153,7 +165,7 @@ export function ExecutiveDashboard({ metrics }: { metrics: DashboardMetrics | nu
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={roiData} layout="vertical" margin={{ left: 40, right: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" horizontal={false} />
-                <XAxis type="number" stroke="#475569" fontSize={10} fontWeight="black" tickLine={false} axisLine={false} />
+                <XAxis type="number" stroke="#94a6b8" fontSize={10} fontWeight="black" tickLine={false} axisLine={false} />
                 <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={10} fontWeight="black" width={100} tickLine={false} axisLine={false} />
                 <Tooltip 
                   cursor={{ fill: '#ffffff02' }}
@@ -193,6 +205,14 @@ export function ExecutiveDashboard({ metrics }: { metrics: DashboardMetrics | nu
     </div>
   )
 }
+interface ExecutiveKPICardProps {
+  title: string;
+  value: string | number;
+  trend: string;
+  positive: boolean;
+  icon: React.ReactNode;
+  color: string;
+}
 
 function ExecutiveKPICard({ title, value, trend, positive, icon, color }: ExecutiveKPICardProps) {
   return (
@@ -209,7 +229,7 @@ function ExecutiveKPICard({ title, value, trend, positive, icon, color }: Execut
         </div>
       </div>
       <div className="relative z-10">
-        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-2 group-hover:text-slate-400 transition-colors">{title}</p>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-2 group-hover:text-slate-300 transition-colors">{title}</p>
         <h3 className="text-5xl font-black text-white tracking-tighter group-hover:scale-[1.02] transition-transform duration-500">{value}</h3>
       </div>
       

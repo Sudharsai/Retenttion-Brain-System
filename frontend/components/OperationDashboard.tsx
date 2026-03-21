@@ -1,7 +1,7 @@
 "use client"
 
 import React from 'react'
-import { Users, ShieldAlert, Zap, Cpu, Target, Activity } from 'lucide-react'
+import { Users, ShieldAlert, Zap, Cpu, Target, Activity, Globe } from 'lucide-react'
 import { 
   ScatterChart, Scatter, XAxis, YAxis, ZAxis, 
   CartesianGrid, Tooltip, ResponsiveContainer, Cell 
@@ -18,6 +18,8 @@ interface OperationDashboardProps {
     avg_churn_prob: number;
     revenue_at_risk: number;
     persuadables: number;
+    geography_risk?: number;
+    retention_prob?: number;
   } | null;
   onDrillDown: (type: MetricType) => void;
   scatterData: Array<{
@@ -33,10 +35,12 @@ interface OperationDashboardProps {
     auc: number;
   };
   insights: Array<{
-    id?: string | number;
+    id: number;
     name: string;
     uplift_score: number;
     neural_analysis: string;
+    persuadability_score: number;
+    geography_risk_score: number;
   }>;
   hideHeader?: boolean;
   hideKPIs?: boolean;
@@ -112,6 +116,15 @@ export default function OperationDashboard({
             colorClass="text-amber-400"
             onClick={onDrillDown}
           />
+          <KPICard 
+            type="total"
+            title="Geography Risk" 
+            value={`${(metrics?.geography_risk || 0).toFixed(1)}%`} 
+            icon={<Globe className="w-7 h-7" />} 
+            trend="Global Geo Distribution"
+            colorClass="text-indigo-400"
+            onClick={onDrillDown}
+          />
         </div>
       )}
 
@@ -124,7 +137,7 @@ export default function OperationDashboard({
                 <Cpu className="w-5 h-5 text-blue-400" />
                 Predictive Uplift Matrix
               </h3>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Uplift Score vs Churn Probability</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Uplift Score vs Churn Probability</p>
             </div>
             <div className="flex gap-2">
               <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
@@ -142,8 +155,8 @@ export default function OperationDashboard({
             <ResponsiveContainer width="100%" height="100%">
               <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
-                <XAxis type="number" dataKey="x" name="Churn Risk" unit="%" stroke="#64748b" fontSize={10} fontWeight="black" />
-                <YAxis type="number" dataKey="y" name="Uplift" unit="%" stroke="#64748b" fontSize={10} fontWeight="black" />
+                <XAxis type="number" dataKey="x" name="Churn Risk" unit="%" stroke="#94a6b8" fontSize={10} fontWeight="black" />
+                <YAxis type="number" dataKey="y" name="Uplift" unit="%" stroke="#94a6b8" fontSize={10} fontWeight="black" />
                 <ZAxis type="number" dataKey="z" range={[80, 500]} />
                 <Tooltip 
                   cursor={{ strokeDasharray: '3 3', stroke: '#3b82f6' }} 
@@ -183,21 +196,17 @@ export default function OperationDashboard({
                </div>
                <div className="space-y-4">
                   <StatItem label="ROC-AUC" value={(modelStats?.auc || 0.884).toFixed(3)} color="text-amber-400" />
-                  <StatItem label="Neural Latency" value="14ms" color="text-slate-500" />
+                  <StatItem label="Neural Latency" value="14ms" color="text-slate-400" />
                </div>
             </div>
             <div className="mt-6 h-1 w-full bg-white/5 rounded-full overflow-hidden">
                <div className="h-full bg-blue-500 w-[88%] shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
             </div>
-            <p className="text-[8px] font-black text-slate-500 uppercase mt-2 tracking-widest">Confidence Threshold: 0.72 Sigma</p>
+            <p className="text-[8px] font-black text-slate-400 uppercase mt-2 tracking-widest">Confidence Threshold: 0.72 Sigma</p>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
-        <CampaignTimeline />
-        <ChurnRiskMap />
-      </div>
 
       {/* Recommendations */}
       <div className="glass-card rounded-[2.5rem] p-10 border border-emerald-400/10 relative overflow-hidden group">
@@ -208,24 +217,31 @@ export default function OperationDashboard({
             </div>
             Neural Strategy Engine
          </h3>
-         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {insights.slice(0, 3).map((item, i) => (
               <div key={i} className="p-8 bg-white/5 rounded-3xl border border-white/5 hover:border-emerald-400/30 transition-all duration-500 group-item cursor-pointer hover:bg-white/10 shadow-lg">
                  <div className="flex justify-between items-start mb-4">
                     <span className="font-black text-blue-400/60 text-xs tracking-widest">NODE_ALPHA_{item.id || i+1}</span>
-                    <span className={`px-2.5 py-1 rounded-md text-[8px] font-black uppercase tracking-widest ${item.uplift_score > 0.1 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-500/20 text-slate-500'}`}>
+                    <span className={`px-2.5 py-1 rounded-md text-[8px] font-black uppercase tracking-widest ${item.uplift_score > 0.1 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-400/20 text-slate-400'}`}>
                        {item.uplift_score > 0.1 ? 'Strategic Target' : 'Stable Segment'}
                     </span>
                  </div>
                  <h4 className="font-bold text-lg text-white tracking-tight mb-3 group-hover:text-emerald-400 transition-colors">{item.name}</h4>
                  <p className="text-[11px] font-medium text-slate-400 leading-relaxed italic line-clamp-3">“{item.neural_analysis}”</p>
-                 <div className="mt-6 pt-6 border-t border-white/5 flex justify-between items-center">
-                    <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Confidence Level</div>
-                    <div className="text-xs font-black text-emerald-400">92.4%</div>
+                 
+                 <div className="mt-6 pt-6 border-t border-white/5 flex flex-col gap-2">
+                    <div className="flex justify-between items-center">
+                       <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Persuadability</div>
+                       <div className="text-xs font-black text-emerald-400">{((item.persuadability_score || 0) * 100).toFixed(1)}%</div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                       <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Geo Risk</div>
+                       <div className="text-xs font-black text-rose-400">{((item.geography_risk_score || 0) * 100).toFixed(1)}%</div>
+                    </div>
                  </div>
               </div>
             ))}
-         </div>
+          </div>
       </div>
     </div>
   )

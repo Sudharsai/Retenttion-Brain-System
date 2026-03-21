@@ -52,8 +52,13 @@ class Customer(Base):
     revenue = Column(DECIMAL(10, 2))
     usage_score = Column(Float)
     transactions_count = Column(Integer)
+    communication_channel = Column(String(50)) # email, phone, SMS
     churn_risk = Column(Float, default=0.0)
     uplift_score = Column(Float, default=0.0)
+    persuadability_score = Column(Float, default=0.0)
+    geography_risk_score = Column(Float, default=0.0)
+    retention_probability = Column(Float, default=0.0)
+    expected_recovery = Column(Float, default=0.0)
     last_notified = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

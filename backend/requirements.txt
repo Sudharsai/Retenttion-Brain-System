@@ -12,13 +12,7 @@ python-jose[cryptography]
 python-multipart
 slowapi
 fastapi-cache2[redis]
-bcrypt==4.0.1
 python-dotenv
 mysqlclient
 pymysql
-sqlalchemy
-python-jose[cryptography]
-passlib[bcrypt]
-python-multipart
-redis
-slowapi
+reportlab

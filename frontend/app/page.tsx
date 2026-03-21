@@ -34,20 +34,20 @@ import { API_BASE_URL } from '../lib/config';
 // --- Interfaces ---
 
 interface Insight {
+  id: number;
+  customer_id: string;
+  name: string;
+  email: string;
   churn_probability: number;
   uplift_score: number;
-  expected_roi: number;
-  name: string;
+  persuadability_score: number;
+  geography_risk_score: number;
+  retention_probability: number;
+  expected_recovery: number;
+  communication_channel: string;
+  revenue: number;
+  financial_risk: number;
   neural_analysis: string;
-}
-
-interface ModelStats {
-  roc_auc: number;
-  precision: number;
-  recall: number;
-  f1_score: number;
-  training_date: string;
-  feature_importance: Array<{ feature: string; score: number }>;
 }
 
 interface DashboardMetrics {
@@ -56,6 +56,36 @@ interface DashboardMetrics {
   avg_churn_prob: number;
   revenue_at_risk: number;
   persuadables: number;
+  nrr?: number;
+  monthly_churn?: number;
+  annual_churn?: number;
+  avg_ltv?: number;
+}
+
+interface ExecutiveMetrics {
+  metrics: {
+    nrr: number;
+    monthly_churn: number;
+    annual_churn: number;
+    avg_ltv: number;
+    total_ltv: number;
+    portfolio_revenue: number;
+    revenue_at_risk: number;
+    expected_roi: number;
+    recovery_potential: number;
+  };
+  trajectories: {
+    churn: number[];
+    ltv: number[];
+  };
+}
+interface ModelStats {
+  roc_auc: number;
+  precision: number;
+  recall: number;
+  f1_score: number;
+  training_date: string;
+  feature_importance: Array<{ feature: string; score: number }>;
 }
 
 // --- Main Component ---
@@ -71,6 +101,8 @@ export default function Dashboard() {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [alerts, setAlerts] = useState<{type: string, details: string}[]>([]);
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  const [execMetrics, setExecMetrics] = useState<ExecutiveMetrics | null>(null);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -107,6 +139,19 @@ export default function Dashboard() {
       console.error(err);
     }
   }
+
+  const fetchExecutiveData = async () => {
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/analytics/executive-metrics`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const json = await res.json();
+      if (json.success) setExecMetrics(json);
+    } catch (err) {
+      console.error("Executive fetch failed", err);
+    }
+  };
 
   const loadInitialData = useCallback(async () => {
     const token = localStorage.getItem('token')
@@ -167,6 +212,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadInitialData();
+    if (viewMode === 'executive') fetchExecutiveData();
     // Poll for alerts every 30 seconds
     const interval = setInterval(() => {
         const token = localStorage.getItem('token');
@@ -183,7 +229,7 @@ export default function Dashboard() {
     return insights.map((item: Insight) => ({
       x: item.churn_probability,
       y: item.uplift_score,
-      z: item.expected_roi / 20,
+      z: (item.expected_recovery || 0) / 20,
       name: item.name,
       risk: (item.churn_probability > 0.7 ? 'High' : 'Low'),
       neural_analysis: item.neural_analysis || 'No analysis available'
@@ -259,7 +305,7 @@ export default function Dashboard() {
                   <NavItem icon={<LayoutDashboard />} label="Neural Hub" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
                   <NavItem icon={<Users />} label="Identity Base" active={activeTab === 'customers'} onClick={() => setActiveTab('customers')} />
                   <NavItem icon={<AlertCircle />} label="Churn Forecast" active={activeTab === 'predictions'} onClick={() => setActiveTab('predictions')} />
-                  <NavItem icon={<Target />} label="Uplift Matrix" active={activeTab === 'uplift'} onClick={() => setActiveTab('uplift')} />
+                  <NavItem icon={<AlertCircle />} label="Churn Forecast" active={activeTab === 'predictions'} onClick={() => setActiveTab('predictions')} />
                   <NavItem icon={<Layers />} label="Campaign Manager" active={activeTab === 'campaigns'} onClick={() => setActiveTab('campaigns')} />
                   <NavItem icon={<Bell />} label="Alert Stream" active={activeTab === 'notifications'} onClick={() => setActiveTab('notifications')} />
                   <div className="my-8 h-px bg-white/5 mx-4" />
@@ -275,7 +321,7 @@ export default function Dashboard() {
               <p className="px-4 mb-4 text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Strategic Suite</p>
               <nav className="space-y-1">
                 <NavItem icon={<BarChart3 />} label="Executive Brief" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-                <NavItem icon={<TrendingUp />} label="Retention ROI" active={activeTab === 'uplift'} onClick={() => setActiveTab('uplift')} />
+                <NavItem icon={<BarChart3 />} label="Executive Brief" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
                 <NavItem icon={<Users />} label="LTV Segments" active={activeTab === 'customers'} onClick={() => setActiveTab('customers')} />
                 <NavItem icon={<FileText />} label="BI Reports" active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} />
                 <div className="my-8 h-px bg-white/5 mx-4" />
@@ -360,7 +406,7 @@ export default function Dashboard() {
                 insights={insights}
               />
             ) : (
-              <ExecutiveDashboard metrics={metrics} />
+              <ExecutiveDashboard metrics={metrics} executiveData={execMetrics} />
             )
           ) : activeTab === 'customers' ? (
             <div className="px-10 py-10 space-y-10 animate-in fade-in duration-500">
@@ -404,28 +450,6 @@ export default function Dashboard() {
                   Churn Forecast Engine
                </h2>
                <ChurnForecastEngine />
-            </div>
-          ) : activeTab === 'uplift' ? (
-            <div className="px-10 py-10 space-y-10 animate-in fade-in duration-500">
-               <h2 className="text-3xl font-black mb-6 flex items-center gap-4">
-                  <Target className="w-8 h-8 text-emerald-400" />
-                  Uplift & ROI Matrix
-               </h2>
-               <div className="glass-card p-4 rounded-[2.5rem] border border-white/5 bg-[#070a13] overflow-hidden">
-                  <OperationDashboard 
-                    metrics={metrics} 
-                    onDrillDown={fetchDrillDown} 
-                    scatterData={scatterData} 
-                    modelStats={{
-                      precision: modelStats?.precision || 0.92,
-                      recall: modelStats?.recall || 0.89,
-                      auc: modelStats?.roc_auc || 0.88
-                    }}
-                    insights={insights}
-                    hideHeader={true}
-                    hideKPIs={true}
-                  />
-               </div>
             </div>
           ) : activeTab === 'campaigns' ? (
             <div className="px-10 py-10 space-y-10 animate-in fade-in duration-500">

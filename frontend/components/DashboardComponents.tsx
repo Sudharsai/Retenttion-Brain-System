@@ -18,6 +18,11 @@ export interface CustomerData {
   revenue?: number;
   revenue_at_risk?: number;
   neural_analysis?: string;
+  persuadability_score?: number;
+  geography_risk_score?: number;
+  retention_probability?: number;
+  expected_recovery?: number;
+  communication_channel?: string;
 }
 
 // --- Sub-components ---
@@ -82,9 +87,10 @@ export function DrillDownModal({
               <tr>
                 <th className="px-8 py-5 tracking-widest font-black">Ref ID</th>
                 <th className="px-8 py-5 tracking-widest font-black">Identity</th>
-                <th className="px-8 py-5 tracking-widest font-black">Communication</th>
-                {type !== 'total' && <th className="px-8 py-5 text-center tracking-widest font-black">Neural Score</th>}
-                {(type === 'revenue_risk' || type === 'high_risk') && <th className="px-8 py-5 text-right tracking-widest font-black">Financial Risk</th>}
+                <th className="px-8 py-5 tracking-widest font-black">Channel</th>
+                <th className="px-8 py-5 text-center tracking-widest font-black">Churn Risk</th>
+                <th className="px-8 py-5 text-center tracking-widest font-black">Uplift</th>
+                <th className="px-8 py-5 text-right tracking-widest font-black">Revenue</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -99,24 +105,23 @@ export function DrillDownModal({
                       <span className="font-bold text-white tracking-tight">{item.name}</span>
                     </div>
                   </td>
-                  <td className="px-8 py-5 text-slate-400 font-medium">{item.email}</td>
-                  {type !== 'total' && (
-                    <td className="px-8 py-5 text-center">
-                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10">
-                        <div className={`w-1.5 h-1.5 rounded-full ${
-                          (item.churn_probability || (item.uplift_score ?? 0)) > 0.6 ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]'
-                        }`} />
-                        <span className="text-[10px] font-black text-white">
-                          {item.churn_probability !== undefined ? (item.churn_probability * 100).toFixed(0) + '%' : (item.uplift_score ? (item.uplift_score * 100).toFixed(1) + '%' : '0%')}
-                        </span>
-                      </div>
-                    </td>
-                  )}
-                  {(type === 'revenue_risk' || type === 'high_risk') && (
-                    <td className="px-8 py-5 text-right font-black text-emerald-400 text-base">
-                      ${item.revenue_at_risk?.toLocaleString()}
-                    </td>
-                  )}
+                  <td className="px-8 py-5">
+                    <span className="px-2 py-1 bg-white/5 rounded text-[10px] font-bold text-slate-400 border border-white/10 uppercase">
+                      {item.communication_channel || 'Email'}
+                    </span>
+                  </td>
+                  <td className="px-8 py-5 text-center">
+                    <div className="inline-flex items-center gap-2">
+                       <div className={`w-1.5 h-1.5 rounded-full ${(item.churn_probability ?? 0) > 0.6 ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                       <span className="font-black text-white">{( (item.churn_probability ?? 0) * 100).toFixed(0)}%</span>
+                    </div>
+                  </td>
+                  <td className="px-8 py-5 text-center">
+                    <span className="font-black text-emerald-400">+{((item.uplift_score ?? 0) * 100).toFixed(1)}%</span>
+                  </td>
+                  <td className="px-8 py-5 text-right font-black text-white">
+                    ${(item.revenue ?? 0).toLocaleString()}
+                  </td>
                 </tr>
               ))}
             </tbody>

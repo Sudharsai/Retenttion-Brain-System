@@ -10,12 +10,10 @@ class MLService:
     def identify_columns(df: pd.DataFrame) -> Dict[str, str]:
         """
         Dynamically identify columns based on common keywords.
-        Prioritizes numeric columns for revenue and usage.
         """
         mapping = {}
         cols = {c.lower(): c for c in df.columns}
         
-        # Target mapping - Prioritized keywords
         keywords = {
             'customer_id': ['customerid', 'id', 'cust', 'uuid', 'external'],
             'name': ['name', 'full_name', 'client', 'gender'], 
@@ -23,7 +21,13 @@ class MLService:
             'revenue': ['charges', 'amount', 'revenue', 'spend', 'price', 'billing'],
             'usage': ['tenure', 'months', 'usage', 'activity', 'engagement', 'score', 'points'],
             'transactions': ['trans', 'count', 'orders', 'freq', 'services', 'calls'],
-            'churn': ['churn', 'label', 'target', 'left', 'attrition', 'status']
+            'churn': ['churn', 'label', 'target', 'left', 'attrition', 'status'],
+            'region': ['region', 'state', 'city', 'country', 'location', 'geo'],
+            'channel': ['channel', 'communication', 'contact', 'media'],
+            'engagement_score': ['engagement_score', 'interaction_score'],
+            'satisfaction': ['satisfaction', 'nps', 'rating', 'feedback'],
+            'support_tickets': ['ticket', 'support', 'issue', 'complaint'],
+            'tenure': ['tenure', 'months', 'seniority', 'age']
         }
         
         for key, search_words in keywords.items():
@@ -32,17 +36,14 @@ class MLService:
                 matches = [cols[c] for c in cols if word in c]
                 if not matches: continue
                 
-                # If searching for numeric fields, prefer columns that are actually numeric
-                if key in ['revenue', 'usage', 'transactions']:
+                if key in ['revenue', 'usage', 'transactions', 'tenure', 'engagement_score', 'satisfaction', 'support_tickets']:
                     numeric_matches = []
                     for m in matches:
-                        # Sample check for numeric
                         sample = pd.to_numeric(df[m].head(10), errors='coerce')
                         if not sample.isna().all():
                             numeric_matches.append(m)
                     
                     if numeric_matches:
-                        # For revenue, prefer 'Total' over 'Monthly' if both match
                         if key == 'revenue':
                             totals = [m for m in numeric_matches if 'total' in m.lower()]
                             best_match = totals[0] if totals else numeric_matches[0]
@@ -61,50 +62,41 @@ class MLService:
     @staticmethod
     def train_model(df: pd.DataFrame) -> Tuple[Dict, xgb.XGBClassifier, float]:
         """
-        Rigorous Train/Test Pipeline:
-        1. Feature Mapping & Cleaning
-        2. Train/Test Split
-        3. XGBoost Training
-        4. Evaluation
+        Train XGBoost model on available features.
         """
         mapping = MLService.identify_columns(df)
         
-        # Prioritize preprocessed standardized columns if available
-        features = ['revenue', 'usage', 'transactions']
+        # Features for retention/churn prediction
+        features = ['revenue', 'usage', 'transactions', 'tenure', 'engagement_score', 'satisfaction', 'support_tickets']
         available_features = [f for f in features if f in df.columns]
         
-        if not available_features:
-            available_features = [mapping[f] for f in features if f in mapping]
+        # Fallback if standardized columns not present
+        if len(available_features) < 2:
+            mapped_features = [mapping[f] for f in features if f in mapping]
+            available_features = list(set(available_features + mapped_features))
         
         if not available_features:
             raise ValueError("Insufficient feature columns identified in dataset.")
 
-        # Prepare X and y
         X = df[available_features].copy()
         for col in X.columns:
             X[col] = pd.to_numeric(X[col], errors='coerce').fillna(0)
             
-        # Target variable
         if 'churn' in mapping:
             target_series = df[mapping['churn']].astype(str).str.lower()
             y = target_series.apply(lambda x: 1 if x in ['yes', '1', 'true', 'churned'] else 0).values
         else:
-            # Synthetic target for demonstration if 'churn' column is missing
-            # Logic: Churn = 1 if engagement < 20th percentile
+            # Synthetic target if missing
             if not X.empty:
                 eng = (X.iloc[:, 0] * 0.4 + X.iloc[:, 1] * 0.6)
                 y = (eng < eng.quantile(0.2)).astype(int).values
             else:
                 y = np.zeros(len(df))
 
-        # Step: Split Data (Row-wise splitting as requested)
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-        
-        # Step: Train Model
         model = xgb.XGBClassifier(n_estimators=100, max_depth=3, learning_rate=0.1, random_state=42)
         model.fit(X_train, y_train)
         
-        # Step: Evaluation
         y_pred = model.predict(X_test)
         y_prob = model.predict_proba(X_test)[:, 1]
         
@@ -116,75 +108,92 @@ class MLService:
             "roc_auc": round(float(roc_auc_score(y_test, y_prob)), 4) if len(np.unique(y_test)) > 1 else 1.0
         }
         
-        return metrics, model, float(X.mean().mean())
+        return metrics, model, available_features
 
     @staticmethod
     def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
         """
-        Perform feature engineering safely.
+        Standardize and engineer features.
         """
-        # Ensure we have numeric base columns even if they aren't named 'revenue', 'usage', etc.
         mapping = MLService.identify_columns(df)
         
-        rev_col = mapping.get('revenue')
-        use_col = mapping.get('usage')
-        tra_col = mapping.get('transactions')
+        # Map primary columns
+        columns_to_map = ['revenue', 'usage', 'transactions', 'tenure', 'engagement_score', 'satisfaction', 'support_tickets']
+        for col in columns_to_map:
+            if mapping.get(col):
+                df[col] = pd.to_numeric(df[mapping[col]], errors='coerce').fillna(0)
+            elif col not in df.columns:
+                df[col] = 0.0
 
-        # Heuristic values if columns are missing
-        if rev_col: df['revenue_num'] = pd.to_numeric(df[rev_col], errors='coerce').fillna(0)
-        else: df['revenue_num'] = 0.0
+        # Feature Engineering
+        df['usage_frequency'] = df['transactions'] / df['usage'].replace(0, 1)
+        df['avg_transaction_value'] = df['revenue'] / df['transactions'].replace(0, 1)
         
-        if use_col: df['usage_num'] = pd.to_numeric(df[use_col], errors='coerce').fillna(0)
-        else: df['usage_num'] = 1.0 # Avoid div by zero
+        # Persuadability Logic
+        # persuadability_score = (engagement_recency × 0.3 + response_rate × 0.3 + discount_sensitivity × 0.2 + channel_pref × 0.2)
+        # Using proxies from available data
+        recency_proxy = (df['usage'] / df['usage'].max()).fillna(0.5) if not df['usage'].empty else 0.5
+        resp_rate_proxy = (df['transactions'] / df['transactions'].max()).fillna(0.5) if not df['transactions'].empty else 0.5
+        df['persuadability_score'] = (recency_proxy * 30 + resp_rate_proxy * 30 + 20 + 20) # Simplified proxy
         
-        if tra_col: df['trans_num'] = pd.to_numeric(df[tra_col], errors='coerce').fillna(0)
-        else: df['trans_num'] = 0.0
-
-        # Feature Engineering using internal safe names
-        df['usage_frequency'] = df['trans_num'] / df['usage_num'].replace(0, 1)
-        df['avg_transaction_value'] = df['revenue_num'] / df['trans_num'].replace(0, 1)
-        df['engagement_score'] = (df['usage_num'] * 0.6) + (df['trans_num'] * 0.4)
-        
-        # Map back to expected output names for controllers
-        df['revenue'] = df['revenue_num']
-        df['usage'] = df['usage_num']
-        df['transactions'] = df['trans_num']
-        
+        # Geography Risk
+        # (regional_churn_rate * 0.4 + local_competition * 0.3 + internal_service_quality * 0.3)
+        region_col = mapping.get('region')
+        if region_col:
+            # Mock regional churn rate if real data unavailable
+            df['region_val'] = df[region_col].factorize()[0]
+            df['geography_risk_score'] = 40 + (df['region_val'] % 40) # 40-80 range
+        else:
+            df['geography_risk_score'] = 25.0 # Low default
+            
         return df
 
     @staticmethod
     def train_and_score(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
         """
-        Inference passing:
-        Uses the training pipeline to generate scores for the entire dataset.
+        Run full pipeline and generate refined metrics.
         """
         if df.empty: return df, {}
         
-        # Always preprocess to get standardized columns (revenue, usage, etc.)
         df = MLService.preprocess_data(df)
 
         try:
-            metrics, model, _ = MLService.train_model(df)
-            mapping = MLService.identify_columns(df)
-            
-            # Map input to features for prediction
-            features = ['revenue', 'usage', 'transactions']
-            # Note: preprocess_data already created 'revenue', 'usage', 'transactions' columns
+            metrics, model, features = MLService.train_model(df)
             X = df[features].copy()
             for col in X.columns:
                 X[col] = pd.to_numeric(X[col], errors='coerce').fillna(0)
-                
-            # Predictions
-            df['churn_probability'] = model.predict_proba(X)[:, 1]
             
-            # Uplift Simulation
-            df['uplift_score'] = df['churn_probability'] * 0.4
-            df['revenue_at_risk'] = df['revenue'] * df['churn_probability']
+            # Predict Proba
+            probs = model.predict_proba(X)
+            df['churn_probability'] = probs[:, 1]
+            df['retention_probability'] = probs[:, 0]
             
+            # Refine weights based on model findings
+            # Financial Risk = churn_prob * LTV (LTV modeled as revenue * 12 for simplicity)
+            df['ltv'] = df['revenue'] * 12
+            df['financial_risk'] = df['churn_probability'] * df['ltv']
+            
+            # Uplift Logic (Refined)
+            # uplift_score = P(retain | intervention) - P(retain | no_intervention)
+            # Intervention success rate estimated at 15% increase in retention
+            df['uplift_score'] = (df['retention_probability'] * 1.15).clip(0, 1) - df['retention_probability']
+            
+            # Expected Recovery = LTV * uplift_score
+            df['expected_recovery'] = df['ltv'] * df['uplift_score']
+            
+            # Normalize risk scores 0-100
+            df['churn_probability'] = df['churn_probability'] * 100
+            df['retention_probability'] = df['retention_probability'] * 100
+            
+            mapping = MLService.identify_columns(df)
+            if mapping.get('channel'): df['communication_channel'] = df[mapping['channel']]
+            else: df['communication_channel'] = 'Email'
+
             return df, metrics
         except Exception as e:
-            print(f"ML Training Failed, falling back to heuristic: {e}")
-            df['churn_probability'] = 0.5
-            df['uplift_score'] = 0.1
-            df['revenue_at_risk'] = df['revenue'] * 0.5 # Sensible fallback
+            print(f"ML Pipeline Failure: {e}")
+            df['churn_probability'] = 50.0
+            df['retention_probability'] = 50.0
+            df['uplift_score'] = 0.05
+            df['financial_risk'] = df['revenue'] * 6 # Fallback
             return df, {"accuracy": 0, "error": str(e)}

@@ -50,10 +50,8 @@ def process_neural_dataset(file_path: str, company_id: int):
         # Step 3: ML Scoring
         df_scored, metrics = MLService.train_and_score(df)
 
-        # Batch Fetch Existing Customers to reduce roundtrips
+        # Batch Fetch Existing Customers
         existing_customers = {c.external_customer_id: c for c in db.query(Customer).filter(Customer.company_id == company_id).all()}
-        
-        sync_queue = [] # List of tuples (Customer, row)
         
         processed_count = 0
         for _, row in df_scored.iterrows():
@@ -67,7 +65,8 @@ def process_neural_dataset(file_path: str, company_id: int):
                     external_customer_id=ext_id,
                     dataset_id=dataset.id,
                     name=cust_name,
-                    email=f"{ext_id}@fallback.tech" 
+                    email=f"{ext_id}@fallback.tech",
+                    communication_channel=row.get('communication_channel', 'Email')
                 )
                 db.add(customer)
                 existing_customers[ext_id] = customer
@@ -75,55 +74,37 @@ def process_neural_dataset(file_path: str, company_id: int):
                 customer.dataset_id = dataset.id
                 customer.name = cust_name
             
-            # Update base stats on customer object
+            # Update refined stats
             customer.revenue = Decimal(str(row['revenue']))
             customer.usage_score = float(row['usage'])
             customer.transactions_count = int(row['transactions'])
             customer.churn_risk = float(row['churn_probability'])
             customer.uplift_score = float(row['uplift_score'])
-            
-            sync_queue.append((customer, row))
-            processed_count += 1
+            customer.persuadability_score = float(row['persuadability_score'])
+            customer.geography_risk_score = float(row['geography_risk_score'])
+            customer.retention_probability = float(row['retention_probability'])
+            customer.expected_recovery = float(row['expected_recovery'])
+            customer.communication_channel = row.get('communication_channel', 'Email')
 
-        db.flush() # Ensure all customers have IDs
-
-        # Second Pass: Sync Scores/Revenue (Batch updates)
-        for customer, row in sync_queue:
-            # Churn
+            # History Sync
             churn = db.query(ChurnScore).filter(ChurnScore.customer_id == customer.id).first() or ChurnScore(customer_id=customer.id)
-            churn.probability = float(row['churn_probability'])
-            churn.factors = {"usage": float(row['usage']), "acc": metrics.get("accuracy", 0)}
+            churn.probability = float(row['churn_probability']) / 100.0
+            churn.factors = {"usage": float(row['usage']), "geo_risk": float(row['geography_risk_score'])}
             db.add(churn)
             
-            # Uplift
-            uplift = db.query(UpliftScore).filter(UpliftScore.customer_id == customer.id).first() or UpliftScore(customer_id=customer.id)
-            uplift.score = float(row['uplift_score'])
-            uplift.strategy = "AI Optimized"
-            db.add(uplift)
-            
-            # Revenue
             rev = db.query(RevenueData).filter(RevenueData.customer_id == customer.id).first() or RevenueData(customer_id=customer.id)
             rev.total_revenue = Decimal(str(row['revenue']))
-            rev.risk_amount = Decimal(str(row['revenue_at_risk']))
+            rev.risk_amount = Decimal(str(row['financial_risk'])) / 12
             db.add(rev)
+            
+            processed_count += 1
 
-        # Step 4: Finalize Dataset & Audit Log
         dataset.row_count = processed_count
         dataset.status = "completed"
-
-        metrics_summary = f"Accuracy: {metrics.get('accuracy')}, F1: {metrics.get('f1_score')}, AUC: {metrics.get('roc_auc')}"
-        log = AppLog(
-            company_id=company_id,
-            action="MODEL_TRAINING_COMPLETE",
-            details=f"Processed dataset '{dataset.filename}' ({processed_count} records). Metrics: {metrics_summary}"
-        )
-        db.add(log)
-        
         db.commit()
         
-        # Trigger automated retention emails for high-risk customers
+        # Trigger automation
         send_automated_retention_emails.delay(company_id)
-        
         return {"status": "Complete", "processed_count": processed_count, "dataset_id": dataset.id}
 
     except Exception as e:

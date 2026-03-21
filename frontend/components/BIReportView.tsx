@@ -206,7 +206,7 @@ export default function BIReportView() {
             <p className="text-xl font-bold text-blue-600 mt-4 tracking-widest uppercase">Neural Operations // Confidential // V2.4</p>
           </div>
           <div className="text-right">
-            <p className="text-xs font-black text-slate-500 uppercase">Generated On</p>
+            <p className="text-xs font-black text-slate-400 uppercase">Generated On</p>
             <p className="text-sm font-bold text-black">{new Date().toLocaleDateString()}</p>
           </div>
         </div>
@@ -218,7 +218,7 @@ export default function BIReportView() {
             <BarChart3 className="w-10 h-10 text-blue-500" />
             Intelligence Report <span className="text-blue-600">V2.4</span>
           </h2>
-          <p className="text-slate-500 font-bold uppercase tracking-[0.4em] text-[10px] mt-2">Strategic Intelligence Engine // Secure Session</p>
+          <p className="text-slate-400 font-bold uppercase tracking-[0.4em] text-[10px] mt-2">Strategic Intelligence Engine // Secure Session</p>
         </div>
         <div className="flex gap-4">
            <button 
@@ -244,7 +244,7 @@ export default function BIReportView() {
               <div className="flex justify-between items-start mb-10">
                  <div>
                     <h3 className="text-xl font-black text-white">Churn vs Revenue Resonance</h3>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-1">6-Month Macro Analysis</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">6-Month Macro Analysis</p>
                  </div>
                  <div className="p-3 bg-blue-600/10 rounded-xl border border-blue-500/20">
                     <TrendingUp className="w-5 h-5 text-blue-500" />
@@ -260,8 +260,8 @@ export default function BIReportView() {
                           </linearGradient>
                        </defs>
                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff03" vertical={false} />
-                       <XAxis dataKey="name" stroke="#475569" fontSize={10} fontWeight="900" />
-                       <YAxis stroke="#475569" fontSize={10} fontWeight="900" />
+                       <XAxis dataKey="name" stroke="#94a6b8" fontSize={10} fontWeight="900" />
+                       <YAxis stroke="#94a6b8" fontSize={10} fontWeight="900" />
                        <Tooltip 
                          contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff10', borderRadius: '12px' }}
                          itemStyle={{ fontWeight: 'bold' }}
@@ -291,7 +291,7 @@ export default function BIReportView() {
 
         <div className="space-y-8">
            <div className="glass-card p-8 rounded-[2.5rem] border border-white/5 flex flex-col items-center">
-              <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.3em] mb-8 w-full">Tier Composition</h3>
+              <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.3em] mb-8 w-full">Tier Composition</h3>
               <div className="h-[250px] w-full">
                  <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -348,15 +348,15 @@ export default function BIReportView() {
               
               <div className="grid grid-cols-3 gap-6">
                 <div className="p-8 border-2 border-slate-100 rounded-3xl bg-slate-50">
-                  <p className="text-[10px] font-black text-slate-500 uppercase mb-2">ROI Opportunity</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase mb-2">ROI Opportunity</p>
                   <p className="text-4xl font-black text-blue-600">${deepDiveData.summary.total_roi_potential.toLocaleString()}</p>
                 </div>
                 <div className="p-8 border-2 border-slate-100 rounded-3xl bg-slate-50">
-                  <p className="text-[10px] font-black text-slate-500 uppercase mb-2">Identity Cluster</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase mb-2">Identity Cluster</p>
                   <p className="text-4xl font-black text-black">{deepDiveData.summary.total_analyzed}</p>
                 </div>
                 <div className="p-8 border-2 border-slate-100 rounded-3xl bg-slate-50">
-                  <p className="text-[10px] font-black text-slate-500 uppercase mb-2">Risk Factor</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase mb-2">Risk Factor</p>
                   <p className="text-4xl font-black text-rose-600">{deepDiveData.summary.critical_nodes} Nodes</p>
                 </div>
               </div>
@@ -376,7 +376,7 @@ export default function BIReportView() {
                       <tr key={i} className="border-b border-slate-100">
                         <td className="py-4">
                           <p className="text-sm font-bold text-black">{item.name}</p>
-                          <p className="text-[9px] text-slate-500 font-bold">{item.email}</p>
+                          <p className="text-[9px] text-slate-400 font-bold">{item.email}</p>
                         </td>
                         <td className="py-4 text-sm font-bold text-black text-right">{Math.round(item.churn_risk * 100)}%</td>
                         <td className="py-4 text-right">
@@ -402,7 +402,7 @@ export default function BIReportView() {
                        <Target className="w-8 h-8 text-blue-500" />
                        Strategic Deep-Dive Analysis
                     </h3>
-                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.4em] mt-2">Neural Node: Segment Allocation Matrix</p>
+                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">Neural Node: Segment Allocation Matrix</p>
                  </div>
                  <button onClick={() => setIsModalOpen(false)} className="p-3 bg-white/5 rounded-2xl hover:bg-white/10 transition-colors">
                     <X className="w-6 h-6 text-slate-400" />
@@ -413,7 +413,7 @@ export default function BIReportView() {
                  {loading ? (
                     <div className="h-64 flex flex-col items-center justify-center">
                        <RefreshCcw className="w-12 h-12 text-blue-500 animate-spin mb-4" />
-                       <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Aggregating Strategic Clusters...</p>
+                       <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Aggregating Strategic Clusters...</p>
                     </div>
                  ) : deepDiveData ? (
                     <div className="space-y-10">
@@ -433,7 +433,7 @@ export default function BIReportView() {
                        </div>
 
                        <div className="space-y-4">
-                          <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest pl-2">Prioritized Strategic Map</h4>
+                          <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest pl-2">Prioritized Strategic Map</h4>
                           <div className="grid grid-cols-1 gap-4">
                              {deepDiveData.items.map((item) => (
                                 <div key={item.id} className="group p-6 bg-white/5 rounded-[2rem] border border-white/5 hover:border-blue-500/30 transition-all flex flex-wrap lg:flex-nowrap justify-between items-center gap-6">
@@ -443,7 +443,7 @@ export default function BIReportView() {
                                       </div>
                                       <div>
                                          <p className="text-lg font-black text-white">{item.name}</p>
-                                         <p className="text-[10px] text-slate-500 font-bold">{item.email}</p>
+                                         <p className="text-[10px] text-slate-400 font-bold">{item.email}</p>
                                       </div>
                                    </div>
 
@@ -475,7 +475,7 @@ export default function BIReportView() {
                                       </div>
                                    </div>
                                    
-                                   <button className="p-4 bg-white/5 rounded-2xl hover:bg-blue-600 transition-all text-slate-500 hover:text-white group-hover:translate-x-1">
+                                   <button className="p-4 bg-white/5 rounded-2xl hover:bg-blue-600 transition-all text-slate-400 hover:text-white group-hover:translate-x-1">
                                       <ChevronRight className="w-5 h-5" />
                                    </button>
                                 </div>
@@ -486,7 +486,7 @@ export default function BIReportView() {
                  ) : (
                     <div className="text-center py-20">
                        <Zap className="w-12 h-12 text-slate-700 mx-auto mb-4" />
-                       <p className="text-slate-500 font-bold uppercase tracking-widest">No Strategic Assets Identified</p>
+                       <p className="text-slate-400 font-bold uppercase tracking-widest">No Strategic Assets Identified</p>
                     </div>
                  )}
               </div>
