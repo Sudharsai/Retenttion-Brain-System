@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from models.domain import Customer, ChurnScore, UpliftScore, RevenueData, Dataset, Campaign
+from models.domain import Customer, ChurnScore, UpliftScore, RevenueData, Dataset
+from models.campaign import Campaign
 from fastapi import HTTPException
 from typing import List, Optional
 

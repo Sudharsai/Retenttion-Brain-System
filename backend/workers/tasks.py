@@ -2,7 +2,7 @@ import pandas as pd
 from celery import Celery
 import os
 from database.session import SessionLocal
-from models.domain import Customer, ChurnScore, UpliftScore, RevenueData, Company, AppLog, Dataset
+from models.domain import Customer, ChurnScore, UpliftScore, RevenueData, Company, AppLog, Dataset, Alert
 from services.ml_service import MLService
 from typing import Dict
 from decimal import Decimal
@@ -54,7 +54,10 @@ def process_neural_dataset(file_path: str, company_id: int):
         existing_customers = {c.external_customer_id: c for c in db.query(Customer).filter(Customer.company_id == company_id).all()}
         
         processed_count = 0
-        for _, row in df_scored.iterrows():
+        batch_size = 500
+        
+        # We'll use a local list to accumulate objects and commit them
+        for index, (_, row) in enumerate(df_scored.iterrows()):
             ext_id = str(row[mapping.get('customer_id', df.columns[0])])
             cust_name = str(row[mapping.get('name', mapping.get('customer_id', df.columns[0]))])
             
@@ -65,39 +68,51 @@ def process_neural_dataset(file_path: str, company_id: int):
                     external_customer_id=ext_id,
                     dataset_id=dataset.id,
                     name=cust_name,
-                    email=f"{ext_id}@fallback.tech",
-                    communication_channel=row.get('communication_channel', 'Email')
+                    email=f"{ext_id}@fallback.tech"
                 )
                 db.add(customer)
                 existing_customers[ext_id] = customer
-            else:
-                customer.dataset_id = dataset.id
-                customer.name = cust_name
             
-            # Update refined stats
+            # Update values
+            customer.name = cust_name
+            customer.dataset_id = dataset.id
             customer.revenue = Decimal(str(row['revenue']))
             customer.usage_score = float(row['usage'])
-            customer.transactions_count = int(row['transactions'])
+            customer.transactions_count = int(float(row['transactions']))
             customer.churn_risk = float(row['churn_probability'])
             customer.uplift_score = float(row['uplift_score'])
             customer.persuadability_score = float(row['persuadability_score'])
             customer.geography_risk_score = float(row['geography_risk_score'])
             customer.retention_probability = float(row['retention_probability'])
             customer.expected_recovery = float(row['expected_recovery'])
-            customer.communication_channel = row.get('communication_channel', 'Email')
+            customer.communication_channel = str(row.get('communication_channel' if 'communication_channel' in row else mapping.get('channel', 'Email'), 'Email'))
 
-            # History Sync
-            churn = db.query(ChurnScore).filter(ChurnScore.customer_id == customer.id).first() or ChurnScore(customer_id=customer.id)
+            # We MUST flush every record to ensure Customer.id is populated for the dependent tables
+            # SQLAlchemy handles this efficiently in a single transaction
+            db.flush()
+            
+            # Upsert Churn Score
+            churn = db.query(ChurnScore).filter(ChurnScore.customer_id == customer.id).first()
+            if not churn:
+                churn = ChurnScore(customer_id=customer.id)
+                db.add(churn)
+            
             churn.probability = float(row['churn_probability']) / 100.0
             churn.factors = {"usage": float(row['usage']), "geo_risk": float(row['geography_risk_score'])}
-            db.add(churn)
             
-            rev = db.query(RevenueData).filter(RevenueData.customer_id == customer.id).first() or RevenueData(customer_id=customer.id)
-            rev.total_revenue = Decimal(str(row['revenue']))
-            rev.risk_amount = Decimal(str(row['financial_risk'])) / 12
-            db.add(rev)
+            # Upsert Revenue Data
+            rev = db.query(RevenueData).filter(RevenueData.customer_id == customer.id).first()
+            if not rev:
+                rev = RevenueData(customer_id=customer.id)
+                db.add(rev)
+            
+            rev.total_revenue = customer.revenue
+            rev.risk_amount = Decimal(str(float(customer.revenue) * (float(row['churn_probability']) / 100.0)))
             
             processed_count += 1
+            if processed_count % batch_size == 0:
+                db.commit()
+                print(f"DEBUG: Committed batch {processed_count}")
 
         dataset.row_count = processed_count
         dataset.status = "completed"
@@ -109,6 +124,11 @@ def process_neural_dataset(file_path: str, company_id: int):
 
     except Exception as e:
         db.rollback()
+        ds_id = dataset.id if 'dataset' in locals() else 'unknown'
+        print(f"CRITICAL: Dataset Processing Failed for ID {ds_id}: {e}")
+        if 'dataset' in locals():
+            dataset.status = "failed"
+            db.commit()
         return {"error": str(e)}
     finally:
         db.close()
@@ -160,7 +180,7 @@ def simulate_campaign_progress(campaign_id: int, company_id: int):
     Simulates a campaign moving through stages in the background.
     """
     from database.session import SessionLocal
-    from models.domain import Campaign
+    from models.campaign import Campaign
     import time
     
     db = SessionLocal()

@@ -2,6 +2,7 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from models.domain import Base
+from models.campaign import Campaign, CampaignEmail
 from dotenv import load_dotenv
 
 # Load .env file

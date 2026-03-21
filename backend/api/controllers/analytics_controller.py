@@ -4,7 +4,8 @@ import pandas as pd
 import re
 from typing import Dict, List
 
-from models.domain import Customer, ChurnScore, UpliftScore, RevenueData, AppLog, Campaign, Alert
+from models.domain import Customer, ChurnScore, UpliftScore, RevenueData, AppLog, Alert
+from models.campaign import Campaign
 from services.ml_service import MLService
 
 def get_model_stats(db: Session, company_id: int):
@@ -94,20 +95,21 @@ def run_retraining(db: Session, company_id: int):
         db.query(ChurnScore).filter(ChurnScore.customer_id == cust_id).delete()
         db.add(ChurnScore(
             customer_id=cust_id,
-            probability=float(row['churn_probability']) / 100.0, # Store as 0-1 internally
+            probability=float(row['churn_probability']) / 100.0,  # Store as 0-1 internally
             factors={
-                "usage_frequency": float(row['usage_frequency']), 
-                "avg_transaction_val": float(row['avg_transaction_value']),
-                "geography_risk": float(row['geography_risk_score'])
+                "usage_frequency": float(row.get('usage_frequency', 0)),
+                "avg_transaction_val": float(row.get('avg_transaction_value', 0)),
+                "geography_risk": float(row.get('geography_risk_score', 25))
             }
         ))
-        
+
         # Update Revenue Risk
         db.query(RevenueData).filter(RevenueData.customer_id == cust_id).delete()
+        financial_risk = float(row.get('financial_risk', float(row['revenue']) * float(row['churn_probability']) / 100.0 * 12))
         db.add(RevenueData(
-            customer_id=cust_id, 
-            total_revenue=row['revenue'], 
-            risk_amount=float(row['financial_risk']) / 12.0 # Monthly risk
+            customer_id=cust_id,
+            total_revenue=row['revenue'],
+            risk_amount=financial_risk / 12.0  # Monthly risk
         ))
 
     db.commit()
@@ -186,12 +188,13 @@ def get_active_alerts(db: Session, company_id: int):
     
     if not alerts:
         # Generate some initial alerts from high-risk nodes if empty
-        high_risk = db.query(Customer).filter(Customer.company_id == company_id, Customer.churn_risk > 0.8).limit(3).all()
+        # churn_risk is stored as 0-100 float
+        high_risk = db.query(Customer).filter(Customer.company_id == company_id, Customer.churn_risk > 80).limit(3).all()
         for c in high_risk:
             new_alert = Alert(
                 company_id=company_id,
                 type="CHURN_RISK",
-                details=f"CRITICAL: Identity Node {c.external_customer_id} ({c.name}) shows {int(c.churn_risk*100)}% churn probability."
+                details=f"CRITICAL: Identity Node {c.external_customer_id} ({c.name}) shows {int(c.churn_risk)}% churn probability."
             )
             db.add(new_alert)
         db.commit()
@@ -210,9 +213,10 @@ def get_executive_metrics(db: Session, company_id: int):
     # Churn Rate Calculation
     # Monthly_Churn_Rate = (Customers_Lost_This_Month / Customers_Start_Of_Month) * 100
     # For now, we'll use a dynamic estimate based on high-risk nodes (simulating churn)
+    # churn_risk is stored as 0-100 float (percentage)
     high_risk_count = db.query(func.count(Customer.id)).filter(Customer.company_id == company_id, Customer.churn_risk > 80).scalar() or 0
     monthly_churn_rate = (high_risk_count / total_customers) * 100 if total_customers > 0 else 0
-    annual_churn_rate = (1 - (1 - (monthly_churn_rate/100))**12) * 100
+    annual_churn_rate = (1 - (1 - (monthly_churn_rate / 100)) ** 12) * 100
 
     # NRR = ((Starting_MRR + Expansion - Contraction - Churn) / Starting_MRR) * 100
     total_revenue = float(db.query(func.sum(Customer.revenue)).filter(Customer.company_id == company_id).scalar() or 0)

@@ -9,7 +9,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from database.session import SessionLocal, engine
 from models.domain import Base, Company, User, Customer, ChurnScore, UpliftScore, RevenueData, AppLog, Dataset
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 def get_password_hash(password):
     return pwd_context.hash(password)

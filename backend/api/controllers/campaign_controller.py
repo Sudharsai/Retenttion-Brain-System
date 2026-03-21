@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
-from models.domain import Campaign, AppLog
+from models.domain import AppLog
+from models.campaign import Campaign
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime

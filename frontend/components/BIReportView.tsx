@@ -105,16 +105,36 @@ export default function BIReportView() {
     setHandshakeStep(0);
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!deepDiveData) {
-      alert("Please run Deep-Dive Analysis first to generate a full Strategic Brief.");
-      return;
+      setLoading(true);
+      setIsModalOpen(true);
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_BASE_URL}/api/v1/analytics/deep-dive`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const json = await res.json();
+        if (json.success) {
+          setDeepDiveData(json.data);
+          // Wait for state to settle
+          setTimeout(() => performPrint(), 500);
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Failed to prefetch strategic data for export.");
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      performPrint();
     }
+  };
+
+  const performPrint = () => {
     setIsExporting(true);
-    // Give UI time to render the 'Exporting' state before blocking print call
     setTimeout(() => {
       window.print();
-      // Reset after a small delay since window.print() is blocking
       setTimeout(() => setIsExporting(false), 1000);
     }, 500);
   };
@@ -170,6 +190,13 @@ export default function BIReportView() {
           }
           h2, h3, h4, p, span, h1 {
             color: black !important;
+          }
+          .recharts-cartesian-axis-text {
+            fill: black !important;
+            font-weight: bold !important;
+          }
+          .recharts-text {
+            fill: black !important;
           }
           .bg-blue-600 {
              background-color: #2563eb !important;

@@ -1,11 +1,12 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { 
   Settings, Globe, Shield, Cpu, 
   Terminal, Database, Save, RefreshCcw,
   Zap, Bell, Lock, Activity
 } from 'lucide-react'
+import { API_BASE_URL } from '../lib/config'
 
 interface ConfigSectionProps {
   title: string;
@@ -39,14 +40,64 @@ export default function BaseConfigView() {
   const [hubName, setHubName] = useState('RETENTION_BRAIN_V2')
   const [threshold, setThreshold] = useState(70)
   const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saveSuccess, setSaveSuccess] = useState(false)
 
-  const handleSave = () => {
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const token = localStorage.getItem('token')
+        const res = await fetch(`${API_BASE_URL}/api/v1/settings/config`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        const json = await res.json()
+        if (json.success && json.data) {
+          setHubName(json.data.hub_name || 'RETENTION_BRAIN_V2')
+          setThreshold(Math.round((json.data.churn_threshold || 0.7) * 100))
+        }
+      } catch (err) {
+        console.error('Config load failed:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadConfig()
+  }, [])
+
+  const handleSave = async () => {
     setSaving(true)
-    setTimeout(() => {
+    try {
+      const token = localStorage.getItem('token')
+      const res = await fetch(`${API_BASE_URL}/api/v1/settings/config`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          hub_name: hubName,
+          churn_threshold: threshold / 100  // convert % to decimal for backend
+        })
+      })
+      if (res.ok) {
+        setSaving(false)
+        setSaveSuccess(true)
+        setTimeout(() => setSaveSuccess(false), 3000)
+      } else {
+        throw new Error('Save failed')
+      }
+    } catch (err) {
+      console.error(err)
       setSaving(false)
-      alert('Neural configuration synchronized successfully.')
-    }, 1500)
+      alert('Neural synchronization failed. Check cluster logs.')
+    }
   }
+
+  if (loading) return (
+    <div className="py-20 flex justify-center items-center">
+      <RefreshCcw className="w-8 h-8 text-blue-500 animate-spin" />
+    </div>
+  )
 
   return (
     <div className="space-y-12 animate-in fade-in zoom-in-95 duration-700">
@@ -65,7 +116,7 @@ export default function BaseConfigView() {
                 type="text" 
                 value={hubName} 
                 onChange={(e) => setHubName(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold focus:outline-none focus:border-blue-500/50 transition-all"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold focus:outline-none focus:border-blue-500/50 transition-all shadow-inner"
               />
             </div>
             <div className="space-y-3">
@@ -77,7 +128,10 @@ export default function BaseConfigView() {
                   value="intelligence.retention-brain.io"
                   className="flex-1 bg-white/[0.02] border border-white/5 rounded-2xl px-6 py-4 text-slate-500 font-mono text-sm cursor-not-allowed"
                 />
-                <button className="px-6 py-4 bg-white/5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 border border-white/10 hover:bg-white/10 transition-all">
+                <button 
+                  onClick={() => alert("Domain registry locked in production environment.")}
+                  className="px-6 py-4 bg-white/5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 border border-white/10 hover:bg-white/10 transition-all active:scale-95"
+                >
                   Request Alias
                 </button>
               </div>
@@ -103,7 +157,7 @@ export default function BaseConfigView() {
                 max="100" 
                 value={threshold} 
                 onChange={(e) => setThreshold(parseInt(e.target.value))}
-                className="w-full h-2 bg-white/5 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                className="w-full h-2 bg-white/5 rounded-lg appearance-none cursor-pointer accent-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.2)]"
               />
               <p className="text-[9px] text-slate-600 font-bold leading-relaxed mt-2 uppercase tracking-tight">
                 Identities exceeding this probability will be flagged for immediate retention intervention in the Command Center.
@@ -113,14 +167,14 @@ export default function BaseConfigView() {
               <div className="p-5 rounded-2xl bg-white/5 border border-white/5 space-y-3">
                  <div className="flex justify-between items-center">
                     <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Auto-Retrain</span>
-                    <div className="h-5 w-10 bg-blue-600 rounded-full relative"><div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full" /></div>
+                    <div className="h-5 w-10 bg-blue-600 rounded-full relative shadow-[0_0_10px_rgba(37,99,235,0.4)]"><div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full" /></div>
                  </div>
                  <p className="text-[8px] text-slate-500 font-bold uppercase tracking-tighter">Cycle: 24h Interval</p>
               </div>
               <div className="p-5 rounded-2xl bg-white/5 border border-white/5 space-y-3">
                  <div className="flex justify-between items-center">
                     <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Anomaly Guard</span>
-                    <div className="h-5 w-10 bg-blue-600 rounded-full relative"><div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full" /></div>
+                    <div className="h-5 w-10 bg-blue-600 rounded-full relative shadow-[0_0_10px_rgba(37,99,235,0.4)]"><div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full" /></div>
                  </div>
                  <p className="text-[8px] text-slate-500 font-bold uppercase tracking-tighter">Sensitivity: Level Sigma</p>
               </div>
@@ -149,14 +203,14 @@ export default function BaseConfigView() {
             </div>
             <div className="space-y-4">
                <div className="flex items-center gap-3 text-slate-400 group cursor-pointer hover:text-white transition-colors">
-                  <div className="w-2 h-2 rounded-full bg-blue-500" />
+                  <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.8)]" />
                   <span className="text-xs font-bold font-mono">POST // api.techcorp.com/v1/intercept</span>
                </div>
                <div className="flex items-center gap-3 text-slate-400 group cursor-pointer hover:text-white transition-colors">
-                  <div className="w-2 h-2 rounded-full bg-purple-500" />
+                  <div className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_5px_rgba(168,85,247,0.8)]" />
                   <span className="text-xs font-bold font-mono">POST // slack.com/services/T04B...</span>
                </div>
-               <button className="text-[10px] font-black text-blue-500 uppercase tracking-widest mt-2 hover:underline">Manage Tactical Integrations</button>
+               <button className="text-[10px] font-black text-blue-500 uppercase tracking-widest mt-2 hover:underline hover:text-blue-400 transition-colors">Manage Tactical Integrations</button>
             </div>
           </div>
         </ConfigSection>
@@ -168,29 +222,29 @@ export default function BaseConfigView() {
           icon={<Activity />}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             <div className="p-6 bg-white/[0.03] border border-white/5 rounded-3xl flex flex-col justify-between">
+             <div className="p-6 bg-white/[0.03] border border-white/5 rounded-3xl flex flex-col justify-between hover:bg-white/5 transition-colors">
                 <div>
                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">System Uptime</p>
-                   <p className="text-2xl font-black text-white tracking-tighter">14d 04h 22m</p>
+                   <p className="text-2xl font-black text-white tracking-tighter uppercase">14d 04h 22m</p>
                 </div>
                 <div className="mt-4 flex gap-1">
                    {[...Array(12)].map((_, i) => (
-                      <div key={i} className={`h-4 w-1 flex-1 rounded-sm ${i > 10 ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
+                      <div key={i} className={`h-4 w-1 flex-1 rounded-sm ${i > 10 ? 'bg-red-500 animate-pulse' : 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.3)]'}`} />
                    ))}
                 </div>
              </div>
-             <div className="p-6 bg-white/[0.03] border border-white/5 rounded-3xl space-y-4">
+             <div className="p-6 bg-white/[0.03] border border-white/5 rounded-3xl space-y-4 hover:bg-white/5 transition-colors">
                 <div className="flex justify-between items-center border-b border-white/5 pb-3">
                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Neural SDK</span>
                    <span className="text-xs font-bold text-blue-400">v2.4.0-Stable</span>
                 </div>
                 <div className="flex justify-between items-center border-b border-white/5 pb-3">
                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Node ID</span>
-                   <span className="text-xs font-bold text-white">PROD_ALPHA_SINGAPORE</span>
+                   <span className="text-xs font-bold text-white tracking-wider">PROD_ALPHA_SINGAPORE</span>
                 </div>
                 <div className="flex justify-between items-center">
                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Latency Hub</span>
-                   <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Optimal</span>
+                   <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]">Optimal</span>
                 </div>
              </div>
           </div>
@@ -198,11 +252,16 @@ export default function BaseConfigView() {
 
       </div>
 
-      <div className="mt-12 flex justify-end">
+      <div className="mt-12 flex justify-end items-center gap-6">
+         {saveSuccess && (
+           <span className="text-xs font-black text-emerald-400 uppercase tracking-widest animate-in fade-in duration-300">
+             ✓ Configuration Synchronized
+           </span>
+         )}
          <button 
            onClick={handleSave}
            disabled={saving}
-           className="px-12 py-5 bg-blue-600 text-white rounded-[1.5rem] font-black text-sm uppercase tracking-[0.2em] flex items-center gap-4 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_20px_40px_-10px_rgba(59,130,246,0.5)]"
+           className="px-12 py-5 bg-blue-600 text-white rounded-[1.5rem] font-black text-sm uppercase tracking-[0.2em] flex items-center gap-4 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_20px_40px_-10px_rgba(59,130,246,0.5)] disabled:opacity-60"
          >
             {saving ? <RefreshCcw className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
             {saving ? 'Synchronizing Cluster...' : 'Push Configuration'}
@@ -216,7 +275,10 @@ export default function BaseConfigView() {
                <h4 className="text-xl font-black text-red-500 tracking-tight">System Decommission</h4>
                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Permanently purge all neural data for this organization.</p>
             </div>
-            <button className="px-8 py-4 bg-red-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all shadow-lg shadow-red-500/20">
+            <button 
+              onClick={() => confirm("WARNING: This action is irreversible. Proceed with node termination?") && alert("Termination protocol initiated.")}
+              className="px-8 py-4 bg-red-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all shadow-lg shadow-red-500/20 active:scale-95"
+            >
                Terminate Node Data
             </button>
          </div>

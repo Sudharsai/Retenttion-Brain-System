@@ -13,6 +13,6 @@ python-multipart
 slowapi
 fastapi-cache2[redis]
 python-dotenv
-mysqlclient
 pymysql
 reportlab
+aiosmtplib

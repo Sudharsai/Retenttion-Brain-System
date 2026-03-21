@@ -137,63 +137,6 @@ export function DrillDownModal({
     </div>
   );
 }
-export function ImpactSimulator({ baseRevenue, onDeploy, loading }: { baseRevenue: number, onDeploy?: () => void, loading?: boolean }) {
-  const [retentionLift, setRetentionLift] = React.useState(20);
-  const projectedRecovery = React.useMemo(() => (baseRevenue * (retentionLift / 100)), [baseRevenue, retentionLift]);
-
-  return (
-    <div className="glass-card p-8 rounded-[2rem] border border-blue-500/10 relative overflow-hidden group">
-      <div className="absolute -right-4 -top-4 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all" />
-      <h3 className="text-lg font-black text-white flex items-center gap-2 mb-2">
-        <TrendingUp className="w-5 h-5 text-blue-400" />
-        Recovery Impact Simulator
-      </h3>
-      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mb-8">Shift the slider to project recovered ARR</p>
-      
-      <div className="space-y-8">
-        <div className="relative">
-          <input 
-            type="range" 
-            min="0" 
-            max="100" 
-            value={retentionLift} 
-            onChange={(e) => setRetentionLift(parseInt(e.target.value))}
-            className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
-          />
-          <div className="flex justify-between mt-2 text-[10px] font-black text-slate-500 uppercase">
-            <span>0% LIFT</span>
-            <span>{retentionLift}% Retention Lift</span>
-            <span>100% LIFT</span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
-             <p className="text-[10px] font-black text-slate-500 uppercase mb-1">Projected Recovery</p>
-             <p className="text-2xl font-black text-emerald-400 vibrant-text">${projectedRecovery.toLocaleString()}</p>
-          </div>
-          <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
-             <p className="text-[10px] font-black text-slate-500 uppercase mb-1">Intervention ROI</p>
-             <p className="text-2xl font-black text-blue-400 vibrant-text">{(retentionLift * 1.4).toFixed(1)}x</p>
-          </div>
-        </div>
-        
-        <button 
-          onClick={onDeploy}
-          disabled={loading}
-          className={`w-full py-3 bg-blue-600 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:scale-[1.02] active:scale-95 transition-all outline-none border-none text-white cursor-pointer flex items-center justify-center gap-2 ${loading ? 'opacity-70 cursor-wait' : ''}`}
-        >
-          {loading ? (
-            <>
-              <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-              Mirroring Neural Sync...
-            </>
-          ) : 'Deploy Dynamic Campaign'}
-        </button>
-      </div>
-    </div>
-  )
-}
 
 export function StatItem({ label, value, color }: { label: string, value: string, color: string }) {
   return (

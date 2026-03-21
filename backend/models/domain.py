@@ -107,15 +107,6 @@ class AppLog(Base):
     details = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-class Campaign(Base):
-    __tablename__ = "campaigns"
-    id = Column(Integer, primary_key=True, index=True)
-    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False)
-    name = Column(String(255))
-    status = Column(String(50), default="Analyzing") # Analyzing, In Flight, Paused, Completed
-    progress = Column(Integer, default=0)
-    color = Column(String(50), default="bg-blue-500")
-    created_at = Column(DateTime, default=datetime.utcnow)
 
 class Alert(Base):
     __tablename__ = "alerts"

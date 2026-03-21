@@ -14,6 +14,13 @@ def list_companies(db: Session = Depends(get_db), admin: dict = Depends(get_admi
         "data": admin_controller.get_companies(db)
     }
 
+@router.get("/stats")
+def get_admin_metrics(db: Session = Depends(get_db), admin: dict = Depends(get_admin_user)):
+    return {
+        "success": True,
+        "data": admin_controller.get_admin_stats(db)
+    }
+
 @router.post("/company")
 def register_company(req: admin_controller.CompanyCreate, db: Session = Depends(get_db), admin: dict = Depends(get_admin_user)):
     return {

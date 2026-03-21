@@ -52,6 +52,7 @@ export default function SuperAdminDashboard() {
   const [companies, setCompanies] = useState<any[]>([])
   const [users, setUsers] = useState<any[]>([])
   const [logs, setLogs] = useState<any[]>([])
+  const [stats, setStats] = useState({ tenants: 0, users: 0, customers: 0 })
   const [activeTab, setActiveTab] = useState<'companies' | 'users' | 'logs'>('companies')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -66,19 +67,22 @@ export default function SuperAdminDashboard() {
     const apiBase = API_BASE_URL
     
     try {
-      const [compRes, userRes, logRes] = await Promise.all([
+      const [compRes, userRes, logRes, statsRes] = await Promise.all([
         fetch(`${apiBase}/api/v1/admin/companies`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`${apiBase}/api/v1/admin/users`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`${apiBase}/api/v1/admin/logs`, { headers: { 'Authorization': `Bearer ${token}` } })
+        fetch(`${apiBase}/api/v1/admin/logs`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${apiBase}/api/v1/admin/stats`, { headers: { 'Authorization': `Bearer ${token}` } })
       ])
 
       const comps = await compRes.json()
       const usrs = await userRes.json()
       const lgs = await logRes.json()
+      const stts = await statsRes.json()
 
       if (comps.success) setCompanies(comps.data)
       if (usrs.success) setUsers(usrs.data)
       if (lgs.success) setLogs(lgs.data)
+      if (stts.success) setStats(stts.data)
 
     } catch (err) {
       setError('System synchronization failed. Verify backend access.')
@@ -191,9 +195,9 @@ export default function SuperAdminDashboard() {
 
          {/* Quick Stats */}
          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-            <StatCard title="Active Tenants" value={companies.length.toString()} icon={<Building2 className="w-5 h-5" />} colorClass="text-purple-400" />
-            <StatCard title="Entity Base" value={users.length.toString()} icon={<Users className="w-5 h-5" />} colorClass="text-indigo-400" />
-            <StatCard title="Kernel Events" value={logs.length.toString()} icon={<Database className="w-5 h-5" />} colorClass="text-blue-400" />
+            <StatCard title="Active Tenants" value={stats.tenants.toString()} icon={<Building2 className="w-5 h-5" />} colorClass="text-purple-400" />
+            <StatCard title="Entity Base" value={stats.users.toString()} icon={<Users className="w-5 h-5" />} colorClass="text-indigo-400" />
+            <StatCard title="Global Customers" value={stats.customers.toString()} icon={<Database className="w-5 h-5" />} colorClass="text-blue-400" />
          </div>
 
          {/* Content Area */}

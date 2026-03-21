@@ -7,7 +7,7 @@ import {
   ArrowUpRight, ArrowDownRight, Zap, ShieldCheck, ShieldAlert,
   Database, Briefcase, Search, X, Cpu, Globe, 
   BarChart as BarChartIcon, MousePointer2, LayoutDashboard,
-  Calendar, Layers, Map, Bell, FileText, Layout
+  Calendar, Layers, Map, Bell, FileText, Layout, Mail
 } from 'lucide-react'
 import { 
   XAxis, YAxis, CartesianGrid, 
@@ -20,13 +20,16 @@ import {
   StatItem, KPICard, MetricType, CustomerData 
 } from '../components/DashboardComponents';
 import { ExecutiveDashboard } from '../components/ExecutiveDashboard';
-import { CampaignTimeline } from '../components/CampaignTimeline';
-import { ChurnRiskMap } from '../components/ChurnRiskMap';
 import OperationDashboard from '../components/OperationDashboard';
-import DataControlPanel from '../components/DataControlPanel';
 import DataStreamHub from '../components/DataStreamHub';
 import BaseConfigView from '../components/BaseConfigView';
-import { ChurnForecastEngine, ModelTrainingCenter, CampaignControlBase } from '../components/DashboardModules';
+import { 
+  ChurnForecastEngine, 
+  UpliftROIMatrix,
+  RetentionROIView
+} from '../components/DashboardModules';
+import CampaignManager from '../components/CampaignManager';
+import IdentityBaseView from '../components/IdentityBaseView';
 import BIReportView from '../components/BIReportView';
 import { API_BASE_URL } from '../lib/config';
 
@@ -225,16 +228,6 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [loadInitialData]);
 
-  const scatterData = useMemo(() => {
-    return insights.map((item: Insight) => ({
-      x: item.churn_probability,
-      y: item.uplift_score,
-      z: (item.expected_recovery || 0) / 20,
-      name: item.name,
-      risk: (item.churn_probability > 0.7 ? 'High' : 'Low'),
-      neural_analysis: item.neural_analysis || 'No analysis available'
-    }))
-  }, [insights]);
 
   if (loading) return (
     <div className="h-screen flex flex-col items-center justify-center bg-[#070a13] text-white">
@@ -271,16 +264,6 @@ export default function Dashboard() {
 
           {viewMode === 'operation' ? (
             <>
-              <section>
-                <p className="px-4 mb-4 text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Operational Pulse</p>
-                <div className="p-4 bg-white/5 rounded-2xl border border-white/5 space-y-4">
-                    <div className="space-y-2">
-                      <StatItem label="ROC-AUC Score" value={String(modelStats?.roc_auc || '0.884')} color="text-emerald-400" />
-                      <StatItem label="Neural Nodes" value="124 Units" color="text-slate-300" />
-                      <StatItem label="Retrain Offset" value="4h ago" color="text-slate-500" />
-                    </div>
-                </div>
-              </section>
 
               <section>
                 <p className="px-4 mb-4 text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">System Operations</p>
@@ -305,12 +288,10 @@ export default function Dashboard() {
                   <NavItem icon={<LayoutDashboard />} label="Neural Hub" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
                   <NavItem icon={<Users />} label="Identity Base" active={activeTab === 'customers'} onClick={() => setActiveTab('customers')} />
                   <NavItem icon={<AlertCircle />} label="Churn Forecast" active={activeTab === 'predictions'} onClick={() => setActiveTab('predictions')} />
-                  <NavItem icon={<AlertCircle />} label="Churn Forecast" active={activeTab === 'predictions'} onClick={() => setActiveTab('predictions')} />
-                  <NavItem icon={<Layers />} label="Campaign Manager" active={activeTab === 'campaigns'} onClick={() => setActiveTab('campaigns')} />
+                  <NavItem icon={<Mail />} label="Campaign Manager" active={activeTab === 'campaigns'} onClick={() => setActiveTab('campaigns')} />
                   <NavItem icon={<Bell />} label="Alert Stream" active={activeTab === 'notifications'} onClick={() => setActiveTab('notifications')} />
                   <div className="my-8 h-px bg-white/5 mx-4" />
                   <div className="mb-4 px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Compute Layer</div>
-                  <NavItem icon={<Cpu />} label="Model Training" active={activeTab === 'training'} onClick={() => setActiveTab('training')} />
                   <NavItem icon={<Database />} label="Data Stream" active={activeTab === 'data'} onClick={() => setActiveTab('data')} />
                   <NavItem icon={<Settings />} label="Base Config" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
                 </nav>
@@ -321,9 +302,10 @@ export default function Dashboard() {
               <p className="px-4 mb-4 text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Strategic Suite</p>
               <nav className="space-y-1">
                 <NavItem icon={<BarChart3 />} label="Executive Brief" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-                <NavItem icon={<BarChart3 />} label="Executive Brief" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
                 <NavItem icon={<Users />} label="LTV Segments" active={activeTab === 'customers'} onClick={() => setActiveTab('customers')} />
                 <NavItem icon={<FileText />} label="BI Reports" active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} />
+                <NavItem icon={<TrendingUp />} label="Retention ROI" active={activeTab === 'retention-roi'} onClick={() => setActiveTab('retention-roi')} />
+                <NavItem icon={<Target />} label="Uplift & ROI Matrix" active={activeTab === 'uplift-roi'} onClick={() => setActiveTab('uplift-roi')} />
                 <div className="my-8 h-px bg-white/5 mx-4" />
                 <div className="mb-4 px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Corporate</div>
                 <NavItem icon={<Database />} label="Resource Control" active={activeTab === 'data'} onClick={() => setActiveTab('data')} />
@@ -394,55 +376,20 @@ export default function Dashboard() {
         <div className="w-full">
           {activeTab === 'dashboard' ? (
             viewMode === 'operation' ? (
-              <OperationDashboard 
-                metrics={metrics} 
-                onDrillDown={fetchDrillDown} 
-                scatterData={scatterData} 
-                modelStats={{
-                  precision: modelStats?.precision || 0.92,
-                  recall: modelStats?.recall || 0.89,
-                  auc: modelStats?.roc_auc || 0.88
-                }}
-                insights={insights}
-              />
+                <OperationDashboard 
+                  metrics={metrics} 
+                  onDrillDown={fetchDrillDown} 
+                  insights={insights}
+                />
             ) : (
               <ExecutiveDashboard metrics={metrics} executiveData={execMetrics} />
             )
           ) : activeTab === 'customers' ? (
-            <div className="px-10 py-10 space-y-10 animate-in fade-in duration-500">
-              <h2 className="text-3xl font-black mb-6 flex items-center gap-4">
-                 <Users className="w-8 h-8 text-blue-400" />
-                 Identity Base
-              </h2>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                 <div className="glass-card p-8 rounded-[2.5rem] border border-white/5">
-                    <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.3em] mb-6">Persuadable Cluster</h3>
-                    <div className="space-y-4">
-                       {insights.slice(0, 8).map((item, idx) => (
-                          <div key={idx} className="p-4 bg-white/5 rounded-2xl border border-white/5 flex justify-between items-center group hover:bg-white/10 transition-all cursor-pointer">
-                             <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center font-black text-blue-400">
-                                   {item.name.charAt(0)}
-                                </div>
-                                <div>
-                                   <p className="font-bold text-white tracking-tight">{item.name}</p>
-                                   <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest">{(item.churn_probability * 100).toFixed(0)}% CHURN RISK</p>
-                                </div>
-                             </div>
-                             <div className="text-right">
-                                <p className="text-sm font-black text-emerald-400">+{Math.round(item.uplift_score * 100)}% Uplift</p>
-                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">ROI INTERCEPT</p>
-                             </div>
-                          </div>
-                       ))}
-                    </div>
-                 </div>
-                 <div className="glass-card p-8 rounded-[2.5rem] border border-white/5">
-                    <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.3em] mb-6">Geographic Risk Distribution</h3>
-                    <ChurnRiskMap />
-                 </div>
-              </div>
-            </div>
+            <IdentityBaseView
+              insights={insights}
+              metrics={metrics}
+              onDrillDown={fetchDrillDown}
+            />
           ) : activeTab === 'predictions' ? (
             <div className="px-10 py-10 space-y-10 animate-in zoom-in-95 duration-500">
                <h2 className="text-3xl font-black mb-6 flex items-center gap-4">
@@ -453,25 +400,18 @@ export default function Dashboard() {
             </div>
           ) : activeTab === 'campaigns' ? (
             <div className="px-10 py-10 space-y-10 animate-in fade-in duration-500">
-               <h2 className="text-3xl font-black mb-6 flex items-center gap-4">
-                  <Layers className="w-8 h-8 text-amber-400" />
-                  Campaign Control Base
-               </h2>
-               <CampaignControlBase />
-                  <div className="xl:col-span-2">
-                     <DataControlPanel onRefresh={loadInitialData} />
-                  </div>
-               <div className="mt-10">
-                  <CampaignTimeline />
+               <div className="flex justify-between items-end mb-2">
+                 <div>
+                   <h2 className="text-3xl font-black text-white tracking-tight flex items-center gap-4">
+                     <Mail className="w-8 h-8 text-blue-400" />
+                     Campaign Manager
+                   </h2>
+                   <p className="text-slate-500 font-bold text-xs uppercase tracking-[0.4em] mt-2">
+                     Email Retention Outreach · SMTP Powered
+                   </p>
+                 </div>
                </div>
-            </div>
-          ) : activeTab === 'training' ? (
-            <div className="px-10 py-10 space-y-10 animate-in slide-in-from-bottom-4 duration-500">
-               <h2 className="text-3xl font-black mb-6 flex items-center gap-4">
-                  <Cpu className="w-8 h-8 text-purple-400" />
-                  Neural Model Training Center
-               </h2>
-               <ModelTrainingCenter />
+               <CampaignManager />
             </div>
           ) : activeTab === 'notifications' ? (
             <div className="px-10 py-10 space-y-10 animate-in fade-in duration-500">
@@ -517,6 +457,16 @@ export default function Dashboard() {
             </div>
           ) : activeTab === 'reports' ? (
             <BIReportView />
+          ) : activeTab === 'retention-roi' ? (
+            <RetentionROIView metrics={metrics} />
+          ) : activeTab === 'uplift-roi' ? (
+            <div className="px-10 py-10 space-y-10 animate-in fade-in duration-500">
+              <h2 className="text-3xl font-black mb-6 flex items-center gap-4">
+                <Target className="w-8 h-8 text-emerald-400" />
+                Uplift & ROI Matrix
+              </h2>
+              <UpliftROIMatrix />
+            </div>
           ) : activeTab === 'data' ? (
             <div className="px-0 py-10 space-y-10 animate-in fade-in duration-500">
                <div className="px-10 flex justify-between items-end mb-8">

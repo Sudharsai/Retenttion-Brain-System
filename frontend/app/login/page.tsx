@@ -28,7 +28,7 @@ export default function Login() {
                 localStorage.setItem('token', result.access_token)
                 localStorage.setItem('role', result.role)
                 // Store company info if available, otherwise it's likely an admin
-                localStorage.setItem('company_id', result.company_id?.toString() || '0')
+                localStorage.setItem('company_id', result.company_id?.toString() || '')
                 localStorage.setItem('company_name', result.company_name || 'Platform Admin')
                 localStorage.setItem('username', result.username || '')
                 

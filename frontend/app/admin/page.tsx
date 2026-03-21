@@ -27,10 +27,31 @@ function NavItem({ icon, label, active = false, onClick }: { icon: React.ReactNo
   )
 }
 
+function StatCard({ title, value, icon, colorClass }: { title: string, value: string, icon: React.ReactNode, colorClass: string }) {
+  return (
+    <div className="glass-card p-6 rounded-2xl border border-white/5 bg-white/5 relative overflow-hidden group">
+      <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+        {React.cloneElement(icon as React.ReactElement, { className: 'w-12 h-12' })}
+      </div>
+      <div className="flex justify-between items-start mb-4 relative z-10">
+        <div className={`p-2 rounded-xl bg-white/5 border border-white/10 ${colorClass}`}>
+          {icon}
+        </div>
+      </div>
+      <div className="relative z-10">
+        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{title}</p>
+        <h3 className="text-2xl font-black text-white mt-1">{value}</h3>
+      </div>
+    </div>
+  )
+}
+
 // --- Main Page ---
 
 export default function AdminDashboard() {
   const [users, setUsers] = useState<any[]>([])
+  const [stats, setStats] = useState({ tenants: 0, users: 0, customers: 0 })
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'users'>('dashboard')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [companyName, setCompanyName] = useState('')
@@ -45,11 +66,16 @@ export default function AdminDashboard() {
     const apiBase = API_BASE_URL
     
     try {
-      const userRes = await fetch(`${apiBase}/api/v1/admin/users`, { 
-        headers: { 'Authorization': `Bearer ${token}` } 
-      })
+      const [userRes, statsRes] = await Promise.all([
+        fetch(`${apiBase}/api/v1/admin/users`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${apiBase}/api/v1/admin/stats`, { headers: { 'Authorization': `Bearer ${token}` } })
+      ])
+      
       const usrs = await userRes.json()
+      const stts = await statsRes.json()
+      
       if (usrs.success) setUsers(usrs.data)
+      if (stts.success) setStats(stts.data)
     } catch (err) {
       setError('Connection failed. Database unreachable.')
     } finally {
@@ -98,15 +124,22 @@ export default function AdminDashboard() {
         <nav className="p-4 space-y-1 flex-1">
           <p className="px-4 mb-4 text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Operations</p>
           <NavItem 
+            icon={<LayoutDashboard />} 
+            label="System Vitals" 
+            active={activeTab === 'dashboard'} 
+            onClick={() => setActiveTab('dashboard')}
+          />
+          <NavItem 
             icon={<Users />} 
             label="Team Management" 
-            active={true}
+            active={activeTab === 'users'} 
+            onClick={() => setActiveTab('users')}
           />
           
           <div className="my-8 h-px bg-white/5 mx-4" />
           
           <p className="px-4 mb-4 text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">External Utilities</p>
-          <NavItem icon={<LayoutDashboard />} label="Member Preview" onClick={() => window.location.href = '/'} />
+          <NavItem icon={<Zap />} label="Identity Base" onClick={() => window.location.href = '/'} />
         </nav>
 
         <div className="p-6 border-t border-white/5">
@@ -131,59 +164,84 @@ export default function AdminDashboard() {
                  Authorized workspace management active.
                </p>
             </div>
-            <div className="flex gap-4">
-               <button 
-                onClick={async () => {
-                  const username = prompt("Enter Member Username:");
-                  const email = prompt("Enter Email:");
-                  const password = prompt("Enter Temporary Password:");
-                  
-                  if(!username || !email || !password) return;
-                  
-                  const token = localStorage.getItem('token');
-                  const cId = localStorage.getItem('company_id');
-                  
-                  const res = await fetch(`${API_BASE_URL}/api/v1/admin/user`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ 
-                      username, 
-                      email, 
-                      password, 
-                      role: 'user', 
-                      company_id: cId ? parseInt(cId) : null 
-                    })
-                  });
-                  if(res.ok) {
-                    alert(`Member Added Successfully!\n\nUsername: ${username}\nAccess: Standard`);
-                    fetchAdminData();
-                  } else {
-                    const err = await res.json();
-                    alert(`Action Denied: ${err.detail || 'Generic rejection'}`);
-                  }
-                }}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-[0_10px_30px_rgba(37,99,235,0.3)] hover:scale-105 active:scale-95 transition-all">
-                  <Plus className="w-4 h-4" /> Add Team Member
-               </button>
+             <div className="flex gap-4">
+               {activeTab === 'users' && (
+                 <button 
+                  onClick={async () => {
+                    const username = prompt("Enter Member Username:");
+                    const email = prompt("Enter Email:");
+                    const password = prompt("Enter Temporary Password:");
+                    
+                    if(!username || !email || !password) return;
+                    
+                    const token = localStorage.getItem('token');
+                    const cId = localStorage.getItem('company_id');
+                    
+                    const res = await fetch(`${API_BASE_URL}/api/v1/admin/user`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                      body: JSON.stringify({ 
+                        username, 
+                        email, 
+                        password, 
+                        role: 'user', 
+                        company_id: (cId && cId !== "0") ? parseInt(cId) : null 
+                      })
+                    });
+                    if(res.ok) {
+                      alert(`Member Added Successfully!\n\nUsername: ${username}\nAccess: Standard`);
+                      fetchAdminData();
+                    } else {
+                      const err = await res.json();
+                      alert(`Action Denied: ${err.detail || 'Generic rejection'}`);
+                    }
+                  }}
+                  className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-[0_10px_30px_rgba(37,99,235,0.3)] hover:scale-105 active:scale-95 transition-all">
+                    <Plus className="w-4 h-4" /> Add Team Member
+                 </button>
+               )}
             </div>
          </header>
+
+         {activeTab === 'dashboard' && (
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+              <StatCard title="Total Tenants" value={stats.tenants.toString()} icon={<Briefcase className="w-5 h-5" />} colorClass="text-blue-400" />
+              <StatCard title="System Identities" value={stats.users.toString()} icon={<Users className="w-5 h-5" />} colorClass="text-indigo-400" />
+              <StatCard title="Customer Matrix" value={stats.customers.toString()} icon={<Zap className="w-5 h-5" />} colorClass="text-purple-400" />
+           </div>
+         )}
 
          {/* Content Area */}
          <div className="glass-card rounded-[2.5rem] overflow-hidden border border-white/5 flex flex-col min-h-[600px] shadow-2xl bg-white/2">
             <div className="px-10 py-8 border-b border-white/5 bg-white/5 flex justify-between items-center">
-               <h3 className="font-black text-xs uppercase tracking-[0.3em] text-slate-400">Team Roster</h3>
-               <div className="relative">
-                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
-                 <input 
-                  type="text" 
-                  placeholder="Filter members..." 
-                  className="bg-white/5 border border-white/10 rounded-2xl py-2.5 pl-11 pr-5 text-sm font-bold text-white w-64 focus:outline-none focus:border-blue-500/50 transition-all" 
-                 />
-               </div>
+               <h3 className="font-black text-xs uppercase tracking-[0.3em] text-slate-400">
+                 {activeTab === 'dashboard' ? 'Infrastructure Health' : 'Team Roster'}
+               </h3>
+               {activeTab === 'users' && (
+                 <div className="relative">
+                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+                   <input 
+                    type="text" 
+                    placeholder="Filter members..." 
+                    className="bg-white/5 border border-white/10 rounded-2xl py-2.5 pl-11 pr-5 text-sm font-bold text-white w-64 focus:outline-none focus:border-blue-500/50 transition-all" 
+                   />
+                 </div>
+               )}
             </div>
 
             <div className="flex-1">
-              <table className="w-full text-left">
+              {activeTab === 'dashboard' ? (
+                <div className="p-12 flex flex-col items-center justify-center h-full text-center">
+                   <div className="w-24 h-24 bg-blue-500/10 rounded-full flex items-center justify-center mb-8 border border-blue-500/20">
+                      <Zap className="w-10 h-10 text-blue-500" />
+                   </div>
+                   <h4 className="text-2xl font-black mb-4">Neural Network Integrity: 100%</h4>
+                   <p className="text-slate-500 max-w-md font-bold leading-relaxed px-10">
+                     The global platform kernel is synchronized. All multi-tenant data pipelines are active and responding within nominal latency thresholds.
+                   </p>
+                </div>
+              ) : (
+                <table className="w-full text-left">
                 <thead className="bg-[#0f1425] text-slate-600 text-[10px] font-black uppercase tracking-widest border-b border-white/5">
                   <tr>
                     <th className="px-10 py-5">Member Name</th>
@@ -248,6 +306,7 @@ export default function AdminDashboard() {
                   )}
                 </tbody>
               </table>
+              )}
             </div>
          </div>
       </main>
