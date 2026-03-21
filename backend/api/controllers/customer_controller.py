@@ -6,23 +6,34 @@ from fastapi import HTTPException
 from typing import List, Optional
 
 def get_dashboard_kpis(db: Session, company_id: int):
-    total = db.query(func.count(Customer.id)).filter(Customer.company_id == company_id).scalar() or 0
-    high_risk = db.query(func.count(Customer.id)).filter(Customer.company_id == company_id, Customer.churn_risk > 0.7).scalar() or 0
-    rev_at_risk = db.query(func.sum(RevenueData.risk_amount)).join(Customer).filter(Customer.company_id == company_id).scalar() or 0.0
-    persuadables = db.query(func.count(Customer.id)).filter(Customer.company_id == company_id, Customer.uplift_score > 0).scalar() or 0
+    # Use the high-speed PostgreSQL view for the fastest possible calculation
+    from sqlalchemy import text
+    result = db.execute(text("SELECT * FROM v_retention_metrics WHERE company_id = :cid"), {"cid": company_id}).first()
+    
+    if not result:
+        return {
+            "total_customers": 0,
+            "high_risk_customers": 0,
+            "revenue_at_risk": 0.0,
+            "persuadables": 0,
+            "avg_churn_prob": 0.0
+        }
+    
+    # Map view results to response
     return {
-        "total_customers": total,
-        "high_risk_customers": high_risk,
-        "revenue_at_risk": float(rev_at_risk),
-        "persuadables": persuadables,
-        "avg_churn_prob": db.query(func.avg(Customer.churn_risk)).filter(Customer.company_id == company_id).scalar() or 0.0
+        "total_customers": int(result.total_customers),
+        "high_risk_customers": db.query(func.count(Customer.id)).filter(Customer.company_id == company_id, Customer.churn_risk > 70).scalar() or 0,
+        "revenue_at_risk": float(result.revenue_at_risk or 0),
+        "geography_risk": float(result.avg_geography_risk or 0),
+        "persuadables": db.query(func.count(Customer.id)).filter(Customer.company_id == company_id, Customer.uplift_score > 0).scalar() or 0,
+        "avg_churn_prob": float(result.avg_churn_risk or 0)
     }
 
 def get_customers(db: Session, company_id: int, skip: int = 0, limit: int = 20, risk_filter: Optional[str] = None):
     query = db.query(Customer).filter(Customer.company_id == company_id)
-    if risk_filter == "high": query = query.filter(Customer.churn_risk > 0.7)
-    elif risk_filter == "medium": query = query.filter(Customer.churn_risk.between(0.4, 0.7))
-    elif risk_filter == "low": query = query.filter(Customer.churn_risk < 0.4)
+    if risk_filter == "high": query = query.filter(Customer.churn_risk > 70)
+    elif risk_filter == "medium": query = query.filter(Customer.churn_risk.between(40, 70))
+    elif risk_filter == "low": query = query.filter(Customer.churn_risk < 40)
     return {"total": query.count(), "items": query.offset(skip).limit(limit).all()}
 
 def get_uplift_insights(db: Session, company_id: int):

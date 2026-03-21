@@ -2,10 +2,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies required for MySQL client and ML models (like XGBoost)
+# Install system dependencies required for PostgreSQL client and ML models (like XGBoost)
 RUN apt-get update && apt-get install -y \
     gcc \
-    default-libmysqlclient-dev \
+    libpq-dev \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
@@ -18,8 +18,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend source code
 COPY . .
 
-# Create a non-root user for security
-RUN useradd -m celeryuser && chown -R celeryuser:celeryuser /app
+# Create a non-root user and setup directories
+RUN useradd -m celeryuser && \
+    mkdir -p /app/temp_uploads && \
+    chown -R celeryuser:celeryuser /app && \
+    chmod -R 775 /app/temp_uploads
 USER celeryuser
 
 # Expose FastAPI port

@@ -201,6 +201,13 @@ def simulate_campaign_progress(campaign_id: int, company_id: int):
             
             campaign.status = status
             campaign.progress = progress
+            
+            # Simulate ROI and Uplift as the campaign progresses
+            if progress >= 20:
+                campaign.uplift = round(0.015 + (progress / 100.0) * 0.05, 4)
+                campaign.roi = round((campaign.uplift * 100) / 0.8, 2) # Example ROI logic
+                campaign.cost = 400 + (progress * 15)
+                
             if progress == 100:
                 campaign.color = "bg-emerald-500" 
             db.commit()

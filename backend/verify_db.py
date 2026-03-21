@@ -1,19 +1,32 @@
 from sqlalchemy import create_engine, text
 import os
+from dotenv import load_dotenv
 
-DATABASE_URL = "mysql+pymysql://rb_admin:rb_secure_pass_2026@localhost:3307/retention_brain"
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    print("ERROR: DATABASE_URL not set.")
+    exit(1)
+
+# Handle potential localhost mapping for manual runs
+if DATABASE_URL and "postgres:5432" in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace("postgres:5432", "localhost:5432")
+
 engine = create_engine(DATABASE_URL)
 
-with engine.connect() as conn:
-    res = conn.execute(text("SELECT COUNT(*) FROM customers")).scalar()
-    print(f"Total customers: {res}")
-    
-    res = conn.execute(text("SELECT COUNT(*) FROM churn_scores")).scalar()
-    print(f"Total churn scores: {res}")
-    
-    res = conn.execute(text("SELECT COUNT(*) FROM uplift_scores")).scalar()
-    print(f"Total uplift scores: {res}")
-    
-    # Check for company_id 1
-    res = conn.execute(text("SELECT COUNT(*) FROM customers WHERE company_id = 1")).scalar()
-    print(f"Customers for company_id=1: {res}")
+try:
+    with engine.connect() as conn:
+        print(f"Connected to: {DATABASE_URL}")
+        
+        # Core checks
+        tables = ["customers", "churn_scores", "uplift_scores", "companies", "users"]
+        for table in tables:
+            try:
+                res = conn.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar()
+                print(f"Table '{table}' count: {res}")
+            except Exception as e:
+                print(f"Table '{table}' error: {e}")
+        
+except Exception as e:
+    print(f"CRITICAL: Verification Failed: {e}")

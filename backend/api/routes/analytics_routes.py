@@ -13,7 +13,7 @@ def get_stats(db: Session = Depends(get_db), user: dict = Depends(get_current_us
         "data": analytics_controller.get_model_stats(db, user["cid"])
     }
 
-@router.get("/executive-metrics")
+@router.get("/executive-neural-stream")
 def get_exec_metrics(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
     return analytics_controller.get_executive_metrics(db, user["cid"])
 

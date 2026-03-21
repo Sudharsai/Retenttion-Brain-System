@@ -127,7 +127,21 @@ export function ChurnForecastEngine() {
         <div className="glass-card p-8 rounded-[2.5rem] border border-white/5 bg-rose-500/5">
           <h3 className="text-sm font-black text-rose-500/50 uppercase tracking-[0.3em] mb-6">High Risk Alerts</h3>
           <div className="space-y-4">
-            {(highRiskCustomers.length > 0 ? highRiskCustomers : [{id:'?',name:'Loading...',churn_probability:0}]).map((customer, i) => (
+            {chartLoading ? (
+              [1,2,3,4].map(i => (
+                <div key={i} className="p-4 bg-white/5 rounded-2xl border border-white/5 animate-pulse flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full bg-slate-800" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 bg-slate-800 rounded w-24" />
+                    <div className="h-2 bg-slate-800 rounded w-12" />
+                  </div>
+                </div>
+              ))
+            ) : highRiskCustomers.length === 0 ? (
+              <div className="p-8 text-center bg-white/5 rounded-2xl border border-white/5">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">No Critical Anomalies</p>
+              </div>
+            ) : highRiskCustomers.map((customer, i) => (
               <div key={i} className="p-4 bg-white/5 rounded-2xl border border-white/5 flex items-center gap-4">
                 <div className="w-10 h-10 rounded-full bg-rose-500/20 flex items-center justify-center">
                   <AlertCircle className="w-5 h-5 text-rose-500" />
@@ -184,9 +198,9 @@ export function UpliftROIMatrix() {
         if (json.success && json.data?.length) {
           const mapped = json.data.map((c: any) => ({
             name: c.name,
-            roi: parseFloat(((c.progress / 20) + 1).toFixed(2)),
-            uplift: parseFloat((c.progress * 0.008).toFixed(3)),
-            cost: Math.floor(c.progress * 18) + 400,
+            roi: c.roi || 0,
+            uplift: c.uplift || 0,
+            cost: c.cost || 0,
             engagement: c.progress || 0,
           }))
           setRoiData(mapped)
@@ -267,7 +281,7 @@ export function RetentionROIView({ metrics }: { metrics: any }) {
     const fetchROI = async () => {
       try {
         const token = localStorage.getItem('token')
-        const res = await fetch(`${API_BASE_URL}/api/v1/analytics/executive-metrics`, {
+        const res = await fetch(`${API_BASE_URL}/api/v1/analytics/executive-neural-stream`, {
           headers: { 'Authorization': `Bearer ${token}` }
         })
         const json = await res.json()
@@ -283,7 +297,7 @@ export function RetentionROIView({ metrics }: { metrics: any }) {
 
   const revenueAtRisk = metrics?.revenue_at_risk || 0
   const recoveryRate = roiStats?.expected_roi || 0
-  const estimatedRecovery = revenueAtRisk * (recoveryRate / 100)
+  const estimatedRecovery = roiStats?.recovery_potential || (revenueAtRisk * (recoveryRate / 100))
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700 px-10 py-10">

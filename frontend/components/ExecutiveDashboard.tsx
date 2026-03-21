@@ -9,8 +9,9 @@ import {
 import { 
   TrendingUp, Users, DollarSign, Target, 
   ArrowUpRight, ArrowDownRight, Briefcase, 
-  BarChart3, PieChart as PieChartIcon
+  BarChart3, PieChart as PieChartIcon, ChevronRight
 } from 'lucide-react'
+import { MetricType } from './DashboardComponents'
 
 // --- Mock Data for Executive View ---
 const churnTrendData = [
@@ -55,14 +56,26 @@ interface ExecutiveMetrics {
     churn: number[];
     ltv: number[];
   };
+  summary?: {
+    estimated_recovery: number;
+    recovery_statement: string;
+    strategic_advisory: string;
+  };
+  channel_roi?: {
+    name: string;
+    roi: number;
+    cost: number;
+  }[];
 }
 
 export function ExecutiveDashboard({ 
   metrics, 
-  executiveData 
+  executiveData,
+  onDrillDown
 }: { 
   metrics: DashboardMetrics | null;
   executiveData: ExecutiveMetrics | null;
+  onDrillDown: (type: MetricType) => void;
 }) {
   const chartData = useMemo(() => {
     if (!executiveData) return Array(6).fill(0).map((_, i) => ({ month: `M${i+1}`, rate: 0, ltv: 0 }));
@@ -75,6 +88,7 @@ export function ExecutiveDashboard({
   }, [executiveData]);
 
   const exec = executiveData?.metrics;
+  const channelRoi = executiveData?.channel_roi || roiData;
 
   return (
     <div className="space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-1000 w-full max-w-[1700px] mx-auto relative">
@@ -88,6 +102,8 @@ export function ExecutiveDashboard({
           positive={(exec?.nrr || 0) >= 100}
           icon={<Briefcase className="w-6 h-6" />}
           color="text-blue-400"
+          type="total"
+          onClick={onDrillDown}
         />
         <ExecutiveKPICard 
           title="Churn Rate (Avg)" 
@@ -96,6 +112,8 @@ export function ExecutiveDashboard({
           positive={true}
           icon={<TrendingUp className="w-6 h-6" />}
           color="text-emerald-400"
+          type="high_risk"
+          onClick={onDrillDown}
         />
         <ExecutiveKPICard 
           title="Customer LTV" 
@@ -104,6 +122,8 @@ export function ExecutiveDashboard({
           positive={true}
           icon={<DollarSign className="w-6 h-6" />}
           color="text-indigo-400"
+          type="revenue_risk"
+          onClick={onDrillDown}
         />
         <ExecutiveKPICard 
           title="Campaign ROI" 
@@ -112,6 +132,8 @@ export function ExecutiveDashboard({
           positive={true}
           icon={<Target className="w-6 h-6" />}
           color="text-amber-400"
+          type="persuadable"
+          onClick={onDrillDown}
         />
       </div>
 
@@ -141,7 +163,7 @@ export function ExecutiveDashboard({
                 <XAxis dataKey="month" stroke="#94a6b8" fontSize={10} fontWeight="black" />
                 <YAxis yAxisId="left" stroke="#3b82f6" fontSize={10} fontWeight="black" tickFormatter={(v) => `$${v}`} />
                 <YAxis yAxisId="right" orientation="right" stroke="#10b981" fontSize={10} fontWeight="black" tickFormatter={(v) => `${v}%`} />
-                <Tooltip contentStyle={{ backgroundColor: '#0f17 slate-900', border: 'none', borderRadius: '16px' }} />
+                <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '16px' }} />
                 <Area yAxisId="left" type="monotone" dataKey="ltv" stroke="#3b82f6" fill="url(#colorLtv)" strokeWidth={4} />
                 <Area yAxisId="right" type="monotone" dataKey="rate" stroke="#10b981" fill="url(#colorChurn)" strokeWidth={4} />
               </AreaChart>
@@ -163,7 +185,7 @@ export function ExecutiveDashboard({
 
           <div className="h-[400px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={roiData} layout="vertical" margin={{ left: 40, right: 20 }}>
+              <BarChart data={channelRoi} layout="vertical" margin={{ left: 40, right: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" horizontal={false} />
                 <XAxis type="number" stroke="#94a6b8" fontSize={10} fontWeight="black" tickLine={false} axisLine={false} />
                 <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={10} fontWeight="black" width={100} tickLine={false} axisLine={false} />
@@ -172,7 +194,7 @@ export function ExecutiveDashboard({
                   contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff10', borderRadius: '16px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
                 />
                 <Bar dataKey="roi" radius={[0, 12, 12, 0]} barSize={40}>
-                  {roiData.map((entry, index) => (
+                  {channelRoi.map((entry: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} opacity={0.8} />
                   ))}
                 </Bar>
@@ -190,15 +212,19 @@ export function ExecutiveDashboard({
                   <TrendingUp className="w-10 h-10 text-emerald-400" />
                </div>
                <div>
-                  <h4 className="text-2xl font-black text-white">$124,500 Estimated Recovery</h4>
-                  <p className="text-sm text-slate-400 mt-1 font-medium italic">"Predictive interventions have safeguarded 12.4% of total ARR this quarter."</p>
+                  <h4 className="text-2xl font-black text-white">
+                    ${(executiveData?.summary?.estimated_recovery || 0).toLocaleString()} Estimated Recovery
+                  </h4>
+                  <p className="text-sm text-slate-400 mt-1 font-medium italic">
+                    "{executiveData?.summary?.recovery_statement || "Neural projections analyzing ARR safeguard potential..."}"
+                  </p>
                </div>
             </div>
          </div>
          <div className="glass-card p-8 rounded-[2rem] border border-white/5 bg-blue-600/5">
             <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-4">Strategic Advisory</h4>
             <p className="text-xs text-slate-300 leading-relaxed font-medium">
-               Focus retention efforts on the <span className="text-white font-bold">Neural Delta</span> segment. High LTV coupled with increasing churn elasticity suggests significant ROI potential from personalized treatment.
+               {executiveData?.summary?.strategic_advisory || "Initializing strategic neural stream for high-LTV intervention metrics..."}
             </p>
          </div>
       </div>
@@ -212,11 +238,16 @@ interface ExecutiveKPICardProps {
   positive: boolean;
   icon: React.ReactNode;
   color: string;
+  type: MetricType;
+  onClick: (type: MetricType) => void;
 }
 
-function ExecutiveKPICard({ title, value, trend, positive, icon, color }: ExecutiveKPICardProps) {
+function ExecutiveKPICard({ title, value, trend, positive, icon, color, type, onClick }: ExecutiveKPICardProps) {
   return (
-    <div className="glass-card p-10 rounded-[2.5rem] border border-white/5 relative overflow-hidden group hover:border-slate-500/20 transition-all duration-500 shadow-2xl">
+    <div 
+      onClick={() => onClick(type)}
+      className="glass-card p-10 rounded-[2.5rem] border border-white/5 relative overflow-hidden group hover:border-slate-500/20 transition-all duration-500 shadow-2xl cursor-pointer"
+    >
       <div className="flex justify-between items-start mb-8 relative z-10">
         <div className={`p-4 rounded-2xl bg-white/5 border border-white/10 shadow-inner group-hover:scale-110 transition-transform duration-500 ${color}`}>
           {icon}
@@ -233,6 +264,10 @@ function ExecutiveKPICard({ title, value, trend, positive, icon, color }: Execut
         <h3 className="text-5xl font-black text-white tracking-tighter group-hover:scale-[1.02] transition-transform duration-500">{value}</h3>
       </div>
       
+      <div className="mt-8 pt-8 border-t border-white/5 flex items-center text-[10px] font-black text-blue-400 opacity-0 group-hover:opacity-100 transition-all translate-y-4 group-hover:translate-y-0 uppercase tracking-[0.3em] relative z-10">
+        Access Data Node <ChevronRight className="w-3.5 h-3.5 ml-1.5 group-hover:translate-x-1 transition-transform" />
+      </div>
+
       {/* Subtle Background Glow */}
       <div className={`absolute -bottom-10 -right-10 w-32 h-32 blur-[80px] opacity-0 group-hover:opacity-10 transition-opacity duration-700 rounded-full ${color.replace('text-', 'bg-')}`} />
     </div>

@@ -1,23 +1,21 @@
 services:
-  mysql:
-    image: mysql:8.0
+  postgres:
+    image: postgres:16-alpine
     container_name: rb-database
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-retention_brain}
-      MYSQL_USER: ${MYSQL_USER:-rb_admin}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-rb_password}
+      POSTGRES_DB: ${POSTGRES_DB:-retention_brain}
+      POSTGRES_USER: ${POSTGRES_USER:-rb_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rb_password}
     ports:
-      - "3307:3306"
+      - "5432:5432"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$${MYSQL_ROOT_PASSWORD:-root_password}"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
 
   redis:
     image: redis:alpine
@@ -35,13 +33,13 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=mysql+pymysql://${MYSQL_USER:-rb_admin}:${MYSQL_PASSWORD:-rb_password}@mysql:3306/${MYSQL_DATABASE:-retention_brain}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-rb_admin}:${POSTGRES_PASSWORD:-rb_password}@postgres:5432/${POSTGRES_DB:-retention_brain}
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET=${JWT_SECRET:-supersecretjwtkey}
     volumes:
       - temp_uploads:/app/temp_uploads
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_started
@@ -56,13 +54,13 @@ services:
     volumes:
       - temp_uploads:/app/temp_uploads
     environment:
-      - DATABASE_URL=mysql+pymysql://${MYSQL_USER:-rb_admin}:${MYSQL_PASSWORD:-rb_password}@mysql:3306/${MYSQL_DATABASE:-retention_brain}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-rb_admin}:${POSTGRES_PASSWORD:-rb_password}@postgres:5432/${POSTGRES_DB:-retention_brain}
       - REDIS_URL=redis://redis:6379/0
       - TASK_ALWAYS_EAGER=${TASK_ALWAYS_EAGER:-false}
     depends_on:
       - backend
       - redis
-      - mysql
+      - postgres
 
   frontend:
     build:
@@ -78,5 +76,5 @@ services:
       - backend
 
 volumes:
-  mysql_data:
+  postgres_data:
   temp_uploads:

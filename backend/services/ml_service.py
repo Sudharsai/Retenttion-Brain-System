@@ -15,19 +15,19 @@ class MLService:
         cols = {c.lower(): c for c in df.columns}
         
         keywords = {
-            'customer_id': ['customerid', 'id', 'cust', 'uuid', 'external', 'account', 'user_id'],
-            'name': ['name', 'full_name', 'client', 'gender', 'first_name', 'surname'], 
-            'email': ['email', 'mail', 'address', 'contact_point'],
-            'revenue': ['charges', 'amount', 'revenue', 'spend', 'price', 'billing', 'totalcharges', 'monthlycharges', 'mrr', 'arr', 'sales'],
-            'usage': ['tenure', 'months', 'usage', 'activity', 'engagement', 'score', 'points', 'seniority', 'age', 'duration'],
-            'transactions': ['trans', 'count', 'orders', 'freq', 'services', 'calls', 'events', 'purchases'],
-            'churn': ['churn', 'label', 'target', 'left', 'attrition', 'status', 'exited', 'stopped'],
-            'region': ['region', 'state', 'city', 'country', 'location', 'geo', 'area', 'zip'],
-            'channel': ['channel', 'communication', 'contact', 'media', 'medium', 'method'],
-            'engagement_score': ['engagement_score', 'interaction_score'],
-            'satisfaction': ['satisfaction', 'nps', 'rating', 'feedback'],
-            'support_tickets': ['ticket', 'support', 'issue', 'complaint'],
-            'tenure': ['tenure', 'months', 'seniority', 'age']
+            'customer_id': ['customerid', 'id', 'cust', 'uuid', 'external', 'account', 'user_id', 'member_no'],
+            'name': ['name', 'full_name', 'client', 'gender', 'first_name', 'surname', 'account_name'], 
+            'email': ['email', 'mail', 'address', 'contact_point', 'electronic_mail'],
+            'revenue': ['charges', 'amount', 'revenue', 'spend', 'price', 'billing', 'totalcharges', 'monthlycharges', 'mrr', 'arr', 'sales', 'balance', 'value'],
+            'usage': ['tenure', 'months', 'usage', 'activity', 'engagement', 'score', 'points', 'seniority', 'age', 'duration', 'visits', 'logins'],
+            'transactions': ['trans', 'count', 'orders', 'freq', 'services', 'calls', 'events', 'purchases', 'interactions', 'shipments'],
+            'churn': ['churn', 'label', 'target', 'left', 'attrition', 'status', 'exited', 'stopped', 'churned', 'inactive'],
+            'region': ['region', 'state', 'city', 'country', 'location', 'geo', 'area', 'zip', 'territory', 'branch'],
+            'channel': ['channel', 'communication', 'contact', 'media', 'medium', 'method', 'touchpoint'],
+            'engagement_score': ['engagement_score', 'interaction_score', 'usage_frequency', 'activity_index'],
+            'satisfaction': ['satisfaction', 'nps', 'rating', 'feedback', 'review', 'csat'],
+            'support_tickets': ['ticket', 'support', 'issue', 'complaint', 'incident', 'case'],
+            'tenure': ['tenure', 'months', 'seniority', 'age', 'experience', 'membership_duration']
         }
         
         for key, search_words in keywords.items():

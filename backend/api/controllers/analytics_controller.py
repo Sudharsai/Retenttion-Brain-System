@@ -204,60 +204,94 @@ def get_active_alerts(db: Session, company_id: int):
 
 def get_executive_metrics(db: Session, company_id: int):
     """
-    Calculate high-level strategic metrics for the Executive Suite.
+    Calculate high-level strategic metrics for the Executive Suite using high-speed Views.
     """
-    total_customers = db.query(func.count(Customer.id)).filter(Customer.company_id == company_id).scalar() or 0
-    if total_customers == 0:
-        return {"nrr": 0, "churn_rate": 0, "ltv": 0, "success": True}
+    print(f"DEBUG: Starting executive metrics for company {company_id}")
+    from sqlalchemy import text
+    try:
+        view_data = db.execute(text("SELECT * FROM v_retention_metrics WHERE company_id = :cid"), {"cid": company_id}).first()
+        print(f"DEBUG: View data found: {view_data is not None}")
+        
+        if not view_data or view_data.total_customers == 0:
+            print(f"DEBUG: No data or zero customers for company {company_id}")
+            return {
+                "success": True,
+                "metrics": {
+                    "nrr": 0, "monthly_churn": 0, "annual_churn": 0, 
+                    "avg_ltv": 0, "total_ltv": 0, "portfolio_revenue": 0,
+                    "revenue_at_risk": 0, "expected_roi": 0, "recovery_potential": 0, "recovery_pct": 0
+                },
+                "trajectories": {"churn": [0,0,0,0,0,0], "ltv": [0,0,0,0,0,0]},
+                "channel_roi": []
+            }
 
-    # Churn Rate Calculation
-    # Monthly_Churn_Rate = (Customers_Lost_This_Month / Customers_Start_Of_Month) * 100
-    # For now, we'll use a dynamic estimate based on high-risk nodes (simulating churn)
-    # churn_risk is stored as 0-100 float (percentage)
-    high_risk_count = db.query(func.count(Customer.id)).filter(Customer.company_id == company_id, Customer.churn_risk > 80).scalar() or 0
-    monthly_churn_rate = (high_risk_count / total_customers) * 100 if total_customers > 0 else 0
-    annual_churn_rate = (1 - (1 - (monthly_churn_rate / 100)) ** 12) * 100
+        total_customers = int(view_data.total_customers)
+        total_revenue = float(view_data.total_revenue or 0)
+        revenue_at_risk = float(view_data.revenue_at_risk or 0)
+        expected_recovery = float(view_data.potential_recovery or 0)
+        
+        print(f"DEBUG: Stats -> Customers: {total_customers}, Rev: {total_revenue}, Risk: {revenue_at_risk}")
 
-    # NRR = ((Starting_MRR + Expansion - Contraction - Churn) / Starting_MRR) * 100
-    total_revenue = float(db.query(func.sum(Customer.revenue)).filter(Customer.company_id == company_id).scalar() or 0)
-    churn_revenue = float(db.query(func.sum(Customer.revenue)).filter(Customer.company_id == company_id, Customer.churn_risk > 80).scalar() or 0)
-    
-    # Expansion/Contraction (Mocking 2% expansion, 1% contraction for simulation)
-    expansion = total_revenue * 0.02
-    contraction = total_revenue * 0.01
-    starting_mrr = total_revenue + churn_revenue # Approximation
-    
-    nrr = ((starting_mrr + expansion - contraction - churn_revenue) / starting_mrr * 100) if starting_mrr > 0 else 100
+        # Churn Rate Calculation (Using high-risk count for simulation)
+        high_risk_count = db.query(func.count(Customer.id)).filter(Customer.company_id == company_id, Customer.churn_risk > 70).scalar() or 0
+        monthly_churn_rate = (high_risk_count / total_customers) * 100 if total_customers > 0 else 0
+        annual_churn_rate = (1 - (1 - (monthly_churn_rate / 100)) ** 12) * 100
 
-    # LTV Calculation
-    # LTV = (Average_Monthly_Revenue * Gross_Margin) / Monthly_Churn_Rate
-    avg_rev = total_revenue / total_customers if total_customers > 0 else 0
-    gross_margin = 0.85 # Assume 85% for SaaS
-    m_churn_decimal = (monthly_churn_rate / 100) if monthly_churn_rate > 0 else 0.02
-    ltv = (avg_rev * gross_margin) / m_churn_decimal
+        # NRR Calculation
+        expansion = total_revenue * 0.02
+        contraction = total_revenue * 0.01
+        starting_mrr = total_revenue + (total_revenue * 0.05) # Approximation
+        nrr = ((starting_mrr + expansion - contraction - (total_revenue * (monthly_churn_rate/100))) / starting_mrr * 100) if starting_mrr > 0 else 100
 
-    # ROI Projection
-    # Campaign_ROI = ((Revenue_Retained - Campaign_Cost) / Campaign_Cost) * 100
-    revenue_at_risk = float(db.query(func.sum(RevenueData.risk_amount)).join(Customer).filter(Customer.company_id == company_id).scalar() or 0)
-    expected_recovery = float(db.query(func.sum(Customer.expected_recovery)).filter(Customer.company_id == company_id).scalar() or 0)
-    campaign_cost = expected_recovery * 0.1 # Estimate 10% cost
-    roi = ((expected_recovery - campaign_cost) / campaign_cost * 100) if campaign_cost > 0 else 0
+        # LTV Calculation
+        avg_rev = total_revenue / total_customers if total_customers > 0 else 0
+        gross_margin = 0.85
+        m_churn_decimal = (monthly_churn_rate / 100) if monthly_churn_rate > 0 else 0.02
+        ltv = (avg_rev * gross_margin) / m_churn_decimal
 
-    return {
-        "success": True,
-        "metrics": {
-            "nrr": round(nrr, 2),
-            "monthly_churn": round(monthly_churn_rate, 2),
-            "annual_churn": round(annual_churn_rate, 2),
-            "avg_ltv": round(ltv, 2),
-            "total_ltv": round(ltv * total_customers, 2),
-            "portfolio_revenue": round(total_revenue, 2),
-            "revenue_at_risk": round(revenue_at_risk, 2),
-            "expected_roi": round(roi, 2),
-            "recovery_potential": round(expected_recovery, 2)
-        },
-        "trajectories": {
-            "churn": [round(monthly_churn_rate * (1 + (i-3)*0.05), 2) for i in range(6)], # Mock 6-month trend
-            "ltv": [round(ltv * (1 + (i-3)*0.02), 2) for i in range(6)]
+        # ROI Projection (Neural Insights)
+        from models.campaign import Campaign
+        avg_campaign_roi = db.query(func.avg(Campaign.roi)).filter(Campaign.company_id == company_id, Campaign.progress == 100).scalar()
+        roi = float(avg_campaign_roi) if avg_campaign_roi else (((expected_recovery - (expected_recovery * 0.1)) / (expected_recovery * 0.1) * 100) if expected_recovery > 0 else 0)
+
+        # Strategic Advisory
+        high_risk_revenue = db.query(func.sum(Customer.revenue)).filter(Customer.company_id == company_id, Customer.churn_risk > 70).scalar() or 0
+        advisory_msg = f"Focus retention efforts on the High LTV segment. Automated interventions have safeguarding potential for ${expected_recovery:,.0f} in ARR."
+        if high_risk_revenue > total_revenue * 0.2:
+            advisory_msg = "Critical revenue exposure detected. Prioritize Neural Interventions for high-value accounts with declining usage patterns."
+
+        response = {
+            "success": True,
+            "metrics": {
+                "nrr": round(nrr, 2),
+                "monthly_churn": round(monthly_churn_rate, 2),
+                "annual_churn": round(annual_churn_rate, 2),
+                "avg_ltv": round(ltv, 2),
+                "total_ltv": round(ltv * total_customers, 2),
+                "portfolio_revenue": round(total_revenue, 2),
+                "revenue_at_risk": round(revenue_at_risk, 2),
+                "expected_roi": round(roi, 2),
+                "recovery_potential": round(expected_recovery, 2),
+                "recovery_pct": round((expected_recovery / total_revenue * 100) if total_revenue > 0 else 0, 1)
+            },
+            "trajectories": {
+                "churn": [round(monthly_churn_rate * (1 + (i-3)*0.05), 2) for i in range(6)],
+                "ltv": [round(ltv * (1 + (i-3)*0.02), 2) for i in range(6)]
+            },
+            "channel_roi": [
+                {"name": c.name, "roi": c.roi, "cost": float(c.cost)} 
+                for c in db.query(Campaign).filter(Campaign.company_id == company_id).order_by(Campaign.roi.desc()).limit(5).all()
+            ],
+            "summary": {
+                "estimated_recovery": round(expected_recovery, 2),
+                "recovery_statement": f"Predictive interventions have safeguarded {round((expected_recovery / total_revenue * 100) if total_revenue > 0 else 0, 1)}% of total ARR this quarter.",
+                "strategic_advisory": advisory_msg
+            }
         }
-    }
+        print(f"DEBUG: Executive metrics call successful for company {company_id}")
+        return response
+    except Exception as e:
+        print(f"CRITICAL ERROR in get_executive_metrics: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "message": str(e)}

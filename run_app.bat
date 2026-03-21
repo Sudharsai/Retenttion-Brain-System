@@ -9,7 +9,7 @@ taskkill /F /IM node.exe /T /FI "STATUS eq RUNNING" >nul 2>&1
 echo.
 
 :: 2. Launch Docker Stack
-echo [2/3] Initializing Full-Stack Docker (MySQL, Redis, Backend, Worker, Frontend)...
+echo [2/3] Initializing Full-Stack Docker (PostgreSQL 16, Redis, Backend, Worker, Frontend)...
 echo.
 echo IMPORTANT: Ensure Docker Desktop is RUNNING before continuing.
 echo.

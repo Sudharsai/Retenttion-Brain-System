@@ -6,13 +6,12 @@ scikit-learn
 celery
 redis
 SQLAlchemy
-PyMySQL
+psycopg2-binary
 passlib[bcrypt]
 python-jose[cryptography]
 python-multipart
 slowapi
 fastapi-cache2[redis]
 python-dotenv
-pymysql
 reportlab
 aiosmtplib

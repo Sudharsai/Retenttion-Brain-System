@@ -146,7 +146,7 @@ export default function Dashboard() {
   const fetchExecutiveData = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/analytics/executive-metrics`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/analytics/executive-neural-stream`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const json = await res.json();
@@ -216,17 +216,21 @@ export default function Dashboard() {
   useEffect(() => {
     loadInitialData();
     if (viewMode === 'executive') fetchExecutiveData();
-    // Poll for alerts every 30 seconds
+    
+    // Poll for ALL data every 10 seconds for sync
     const interval = setInterval(() => {
         const token = localStorage.getItem('token');
         if (token) {
+            loadInitialData();
+            if (viewMode === 'executive') fetchExecutiveData();
+            
             fetch(`${API_BASE_URL}/api/v1/analytics/alerts`, { headers: { 'Authorization': `Bearer ${token}` } })
                 .then(res => res.json())
                 .then(json => { if (json.success) setAlerts(json.data); });
         }
-    }, 30000);
+    }, 10000);
     return () => clearInterval(interval);
-  }, [loadInitialData]);
+  }, [loadInitialData, viewMode]);
 
 
   if (loading) return (
@@ -366,10 +370,13 @@ export default function Dashboard() {
                   Executive
                 </button>
              </div>
-             <div className="h-10 w-px bg-white/10 hidden md:block mx-2" />
-             <div className="w-12 h-12 rounded-2xl bg-blue-600/10 border border-blue-500/30 flex items-center justify-center cursor-pointer hover:scale-110 transition-all group">
-               <Settings className="w-5 h-5 text-blue-400 group-hover:rotate-90 transition-transform" />
-             </div>
+              <div className="h-10 w-px bg-white/10 hidden md:block mx-2" />
+              <div 
+                onClick={() => setActiveTab('settings')}
+                className="w-12 h-12 rounded-2xl bg-blue-600/10 border border-blue-500/30 flex items-center justify-center cursor-pointer hover:scale-110 transition-all group"
+              >
+                <Settings className="w-5 h-5 text-blue-400 group-hover:rotate-90 transition-transform" />
+              </div>
           </div>
         </header>
 
@@ -382,7 +389,11 @@ export default function Dashboard() {
                   insights={insights}
                 />
             ) : (
-              <ExecutiveDashboard metrics={metrics} executiveData={execMetrics} />
+              <ExecutiveDashboard 
+                metrics={metrics} 
+                executiveData={execMetrics} 
+                onDrillDown={fetchDrillDown}
+              />
             )
           ) : activeTab === 'customers' ? (
             <IdentityBaseView
