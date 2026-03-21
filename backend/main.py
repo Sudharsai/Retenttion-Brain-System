@@ -20,7 +20,7 @@ celery_app = Celery("retention_worker", broker=REDIS_URL, backend=REDIS_URL)
 celery_app.conf.update(
     task_serializer="json",
     accept_content=["json"],
-    task_always_eager=True # Force sync for zero-dependency run
+    task_always_eager=os.getenv("TASK_ALWAYS_EAGER", "False").lower() == "true"
 )
 
 # CORS Configuration

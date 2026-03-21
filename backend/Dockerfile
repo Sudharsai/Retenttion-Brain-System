@@ -12,9 +12,8 @@ RUN apt-get update && apt-get install -y \
 # Copy backend requirements
 COPY requirements.txt .
 
-# Install python dependencies including PyMySQL and SQLAlchemy
+# Install python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir pymysql sqlalchemy python-jose[cryptography] passlib[bcrypt] python-multipart redis slowapi
 
 # Copy backend source code
 COPY . .

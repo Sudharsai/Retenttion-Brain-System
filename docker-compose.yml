@@ -36,7 +36,7 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_URL=mysql+pymysql://${MYSQL_USER:-rb_admin}:${MYSQL_PASSWORD:-rb_password}@mysql:3306/${MYSQL_DATABASE:-retention_brain}
-      - REDIS_URL=redis://rb-redis:6379/0
+      - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET=${JWT_SECRET:-supersecretjwtkey}
     volumes:
       - temp_uploads:/app/temp_uploads
@@ -51,13 +51,13 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: rb-worker
-    command: celery -A main.celery_app worker --loglevel=info -P solo
+    command: celery -A main.celery_app worker --loglevel=info
     restart: always
     volumes:
       - temp_uploads:/app/temp_uploads
     environment:
       - DATABASE_URL=mysql+pymysql://${MYSQL_USER:-rb_admin}:${MYSQL_PASSWORD:-rb_password}@mysql:3306/${MYSQL_DATABASE:-retention_brain}
-      - REDIS_URL=redis://rb-redis:6379/0
+      - REDIS_URL=redis://redis:6379/0
       - TASK_ALWAYS_EAGER=${TASK_ALWAYS_EAGER:-false}
     depends_on:
       - backend
