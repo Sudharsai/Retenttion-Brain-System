@@ -5,8 +5,22 @@ from api.controllers.auth_controller import admin_login, company_login, LoginReq
 from services.auth_service import decode_token
 from fastapi.security import OAuth2PasswordBearer
 
+from pydantic import BaseModel
+from typing import Optional
+
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
+
+class AccessRequestDTO(BaseModel):
+    name: str
+    email: str
+    company: str
+    reason: str
+
+@router.post("/request-access")
+def submit_access_request(req: AccessRequestDTO, db: Session = Depends(get_db)):
+    from api.controllers import admin_controller
+    return admin_controller.create_access_request(db, req.name, req.email, req.company, req.reason)
 
 @router.post("/admin/login")
 def platform_admin_login(req: LoginRequest, db: Session = Depends(get_db)):

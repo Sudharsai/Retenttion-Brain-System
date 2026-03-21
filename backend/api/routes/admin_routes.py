@@ -62,3 +62,24 @@ def system_logs(db: Session = Depends(get_db), admin: dict = Depends(get_admin_u
         "success": True,
         "data": admin_controller.get_system_logs(db)
     }
+
+@router.get("/requests")
+def list_access_requests(db: Session = Depends(get_db), admin: dict = Depends(get_admin_user)):
+    if admin.get("role") != "super_admin":
+        raise HTTPException(status_code=403, detail="Kernel Access Restricted: Super Admin authorization required.")
+    return {
+        "success": True,
+        "data": admin_controller.get_access_requests(db)
+    }
+
+class StatusUpdate(BaseModel):
+    status: str
+
+@router.post("/requests/{request_id}/status")
+def update_request(request_id: int, req: StatusUpdate, db: Session = Depends(get_db), admin: dict = Depends(get_admin_user)):
+    if admin.get("role") != "super_admin":
+        raise HTTPException(status_code=403, detail="Kernel Access Restricted: Super Admin authorization required.")
+    return {
+        "success": True,
+        "data": admin_controller.update_request_status(db, request_id, req.status)
+    }

@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { Mail, Building2, MessageSquare, ChevronRight, ArrowLeft, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
+import { API_BASE_URL } from '../../lib/config'
 
 export default function RequestAccess() {
     const [status, setStatus] = useState<'idle' | 'submitting' | 'success'>('idle')
@@ -17,11 +18,23 @@ export default function RequestAccess() {
         e.preventDefault()
         setStatus('submitting')
         
-        // Simulating API call/Email sending
-        setTimeout(() => {
-            console.log('Access Requested:', formData)
-            setStatus('success')
-        }, 1500)
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/v1/auth/request-access`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            })
+            if (res.ok) {
+                setStatus('success')
+            } else {
+                const err = await res.json()
+                alert(`SUBMISSION_FAILURE: ${err.detail || 'Generic Protocol Error'}`)
+                setStatus('idle')
+            }
+        } catch (err) {
+            alert('NETWORK_ERROR: Neural bridge disconnected.')
+            setStatus('idle')
+        }
     }
 
     if (status === 'success') {

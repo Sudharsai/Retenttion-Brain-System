@@ -193,7 +193,8 @@ export default function AdminDashboard() {
                       fetchAdminData();
                     } else {
                       const err = await res.json();
-                      alert(`Action Denied: ${err.detail || 'Generic rejection'}`);
+                      const detail = err.detail || 'Generic rejection';
+                      alert(`PROVISIONING_ERROR: ${detail}`);
                     }
                   }}
                   className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-[0_10px_30px_rgba(37,99,235,0.3)] hover:scale-105 active:scale-95 transition-all">

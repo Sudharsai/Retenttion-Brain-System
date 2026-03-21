@@ -51,9 +51,10 @@ function StatCard({ title, value, icon, colorClass }: { title: string, value: st
 export default function SuperAdminDashboard() {
   const [companies, setCompanies] = useState<any[]>([])
   const [users, setUsers] = useState<any[]>([])
+  const [requests, setRequests] = useState<any[]>([])
   const [logs, setLogs] = useState<any[]>([])
-  const [stats, setStats] = useState({ tenants: 0, users: 0, customers: 0 })
-  const [activeTab, setActiveTab] = useState<'companies' | 'users' | 'logs'>('companies')
+  const [stats, setStats] = useState({ tenants: 0, users: 0, customers: 0, pending_requests: 0 })
+  const [activeTab, setActiveTab] = useState<'companies' | 'users' | 'requests' | 'logs'>('companies')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -67,22 +68,25 @@ export default function SuperAdminDashboard() {
     const apiBase = API_BASE_URL
     
     try {
-      const [compRes, userRes, logRes, statsRes] = await Promise.all([
+      const [compRes, userRes, logRes, statsRes, reqRes] = await Promise.all([
         fetch(`${apiBase}/api/v1/admin/companies`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`${apiBase}/api/v1/admin/users`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`${apiBase}/api/v1/admin/logs`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`${apiBase}/api/v1/admin/stats`, { headers: { 'Authorization': `Bearer ${token}` } })
+        fetch(`${apiBase}/api/v1/admin/stats`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${apiBase}/api/v1/admin/requests`, { headers: { 'Authorization': `Bearer ${token}` } })
       ])
 
       const comps = await compRes.json()
       const usrs = await userRes.json()
       const lgs = await logRes.json()
       const stts = await statsRes.json()
+      const reqs = await reqRes.json()
 
       if (comps.success) setCompanies(comps.data)
       if (usrs.success) setUsers(usrs.data)
       if (lgs.success) setLogs(lgs.data)
       if (stts.success) setStats(stts.data)
+      if (reqs.success) setRequests(reqs.data)
 
     } catch (err) {
       setError('System synchronization failed. Verify backend access.')
@@ -134,6 +138,12 @@ export default function SuperAdminDashboard() {
             label="Unified User Meta" 
             active={activeTab === 'users'} 
             onClick={() => setActiveTab('users')} 
+          />
+          <NavItem 
+            icon={<Zap />} 
+            label="Access Requests" 
+            active={activeTab === 'requests'} 
+            onClick={() => setActiveTab('requests')} 
           />
           <NavItem 
             icon={<History />} 
@@ -365,6 +375,84 @@ export default function SuperAdminDashboard() {
                       </tbody>
                     </table>
                   </>
+                )}
+
+                {activeTab === 'requests' && (
+                  <table className="w-full text-left">
+                    <thead className="bg-[#0f1425] text-slate-600 text-[10px] font-black uppercase tracking-widest border-b border-white/5">
+                      <tr>
+                        <th className="px-10 py-5">Initiator</th>
+                        <th className="px-10 py-5">Organization</th>
+                        <th className="px-10 py-5">Intent</th>
+                        <th className="px-10 py-5">Status</th>
+                        <th className="px-10 py-5 text-right">Approval</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {requests.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-10 py-20 text-center opacity-30 font-black uppercase tracking-widest text-xs">No pending authorization clusters.</td>
+                        </tr>
+                      ) : (
+                        requests.map(r => (
+                          <tr key={r.id} className="hover:bg-white/5 transition-colors">
+                            <td className="px-10 py-6">
+                               <p className="font-black text-white tracking-tight leading-none mb-1">{r.name}</p>
+                               <p className="text-[10px] text-slate-500 font-bold">{r.email}</p>
+                            </td>
+                            <td className="px-10 py-6 font-black text-xs uppercase tracking-widest text-blue-400">{r.company_name}</td>
+                            <td className="px-10 py-6 font-bold text-xs text-slate-400 max-w-xs truncate">{r.reason}</td>
+                            <td className="px-10 py-6">
+                               <span className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border ${
+                                 r.status === 'pending' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' :
+                                 r.status === 'approved' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' :
+                                 'bg-red-500/10 text-red-400 border-red-500/30'
+                               }`}>
+                                 {r.status}
+                               </span>
+                            </td>
+                            <td className="px-10 py-6 text-right">
+                               {r.status === 'pending' && (
+                                 <div className="flex justify-end gap-2">
+                                   <button 
+                                    onClick={async () => {
+                                      if(!confirm(`Authorize ${r.company_name}? This will grant access to the platform.`)) return;
+                                      const token = localStorage.getItem('token');
+                                      const res = await fetch(`${API_BASE_URL}/api/v1/admin/requests/${r.id}/status`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                        body: JSON.stringify({ status: 'approved' })
+                                      });
+                                      if(res.ok) {
+                                        alert("Authorization cluster synched. Tenant access granted.");
+                                        fetchAdminData();
+                                      }
+                                    }}
+                                    className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-xl border border-emerald-500/30 transition-all">
+                                      <ShieldAlert className="w-4 h-4" />
+                                   </button>
+                                   <button 
+                                    onClick={async () => {
+                                      if(!confirm(`Deny ${r.company_name}?`)) return;
+                                      const token = localStorage.getItem('token');
+                                      const res = await fetch(`${API_BASE_URL}/api/v1/admin/requests/${r.id}/status`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                        body: JSON.stringify({ status: 'denied' })
+                                      });
+                                      if(res.ok) fetchAdminData();
+                                    }}
+                                    className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl border border-red-500/30 transition-all">
+                                      <LogOut className="w-4 h-4" />
+                                   </button>
+                                 </div>
+                               )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 )}
 
                {activeTab === 'logs' && (

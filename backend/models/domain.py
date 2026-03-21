@@ -116,3 +116,13 @@ class Alert(Base):
     details = Column(Text)
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class AccessRequest(Base):
+    __tablename__ = "access_requests"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    email = Column(String(255), nullable=False)
+    company_name = Column(String(255), nullable=False)
+    reason = Column(Text)
+    status = Column(String(50), default="pending") # 'pending', 'approved', 'denied'
+    created_at = Column(DateTime, default=datetime.utcnow)
