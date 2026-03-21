@@ -259,9 +259,11 @@ function ExecutiveKPICard({ title, value, trend, positive, icon, color, type, on
           {trend}
         </div>
       </div>
-      <div className="relative z-10">
+      <div className="relative z-10 overflow-hidden">
         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-2 group-hover:text-slate-300 transition-colors">{title}</p>
-        <h3 className="text-5xl font-black text-white tracking-tighter group-hover:scale-[1.02] transition-transform duration-500">{value}</h3>
+        <h3 className={`${(value?.toString().length || 0) > 10 ? 'text-3xl' : 'text-5xl'} font-black text-white tracking-tighter group-hover:scale-[1.02] transition-transform duration-500 truncate`}>
+          {value}
+        </h3>
       </div>
       
       <div className="mt-8 pt-8 border-t border-white/5 flex items-center text-[10px] font-black text-blue-400 opacity-0 group-hover:opacity-100 transition-all translate-y-4 group-hover:translate-y-0 uppercase tracking-[0.3em] relative z-10">

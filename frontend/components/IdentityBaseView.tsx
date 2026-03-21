@@ -84,9 +84,11 @@ export default function IdentityBaseView({ insights, metrics, onDrillDown }: Ide
           { label: 'Persuadable', value: metrics?.persuadables?.toLocaleString() || '0', color: 'text-emerald-400' },
           { label: 'Revenue Exposure', value: `$${(metrics?.revenue_at_risk || 0).toLocaleString()}`, color: 'text-amber-400' },
         ].map((stat, i) => (
-          <div key={i} className="glass-card p-6 rounded-3xl border border-white/5 text-center cursor-pointer hover:border-blue-500/30 transition-all" onClick={() => onDrillDown(i === 0 ? 'total' : i === 1 ? 'high_risk' : i === 2 ? 'persuadable' : 'revenue_risk')}>
+          <div key={i} className="glass-card p-6 rounded-3xl border border-white/5 text-center cursor-pointer hover:border-blue-500/30 transition-all overflow-hidden" onClick={() => onDrillDown(i === 0 ? 'total' : i === 1 ? 'high_risk' : i === 2 ? 'persuadable' : 'revenue_risk')}>
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">{stat.label}</p>
-            <p className={`text-2xl font-black ${stat.color}`}>{stat.value}</p>
+            <p className={`${(stat.value?.toString().length || 0) > 12 ? 'text-lg' : 'text-2xl'} font-black ${stat.color} truncate`}>
+              {stat.value}
+            </p>
           </div>
         ))}
       </div>

@@ -209,9 +209,11 @@ export function KPICard({
           READY
         </div>
       </div>
-      <div className="space-y-1.5 relative z-10">
+      <div className="space-y-1.5 relative z-10 overflow-hidden">
         <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] group-hover:text-slate-400 transition-colors">{title}</p>
-        <h3 className="text-4xl font-black text-white tracking-tighter group-hover:vibrant-text transition-all duration-500">{value || '0'}</h3>
+        <h3 className={`${(value?.length || 0) > 12 ? 'text-2xl' : 'text-4xl'} font-black text-white tracking-tighter group-hover:vibrant-text transition-all duration-500 truncate`}>
+          {value || '0'}
+        </h3>
       </div>
       <div className="mt-5 flex items-center gap-2 relative z-10">
         <span className="text-[10px] font-black text-slate-400 group-hover:text-slate-300 transition-colors">{trend}</span>
