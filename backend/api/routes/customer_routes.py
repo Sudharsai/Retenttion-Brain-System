@@ -17,6 +17,13 @@ def get_kpis(db: Session = Depends(get_db), user: dict = Depends(get_current_use
         "data": customer_controller.get_dashboard_kpis(db, user["cid"])
     }
 
+@router.get("/high-risk")
+def get_high_risk_customers(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    return {
+        "success": True,
+        "data": customer_controller.get_high_risk_drilldown(db, user["cid"])
+    }
+
 @router.get("/")
 def get_customers(
     skip: int = Query(0), 

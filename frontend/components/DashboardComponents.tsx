@@ -209,9 +209,9 @@ export function KPICard({
           READY
         </div>
       </div>
-      <div className="space-y-1 relative z-10 overflow-hidden">
-        <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em] group-hover:text-slate-400 transition-colors">{title}</p>
-        <h3 className={`${String(value || '').length > 8 ? 'text-lg' : 'text-xl'} font-black text-white tracking-tighter group-hover:vibrant-text transition-all duration-500 truncate`}>
+      <div className="space-y-0.5 relative z-10 overflow-hidden">
+        <p className="text-[8.5px] font-black text-slate-500 uppercase tracking-[0.4em] group-hover:text-slate-400 transition-colors leading-none mb-1">{title}</p>
+        <h3 className={`${String(value || '').length > 8 ? 'text-base' : 'text-lg'} font-black text-white tracking-[-0.05em] group-hover:vibrant-text transition-all duration-500 truncate leading-none`}>
           {value || '0'}
         </h3>
       </div>

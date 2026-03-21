@@ -29,6 +29,18 @@ def get_dashboard_kpis(db: Session, company_id: int):
         "avg_churn_prob": float(result.avg_churn_risk or 0)
     }
 
+def get_high_risk_drilldown(db: Session, company_id: int):
+    # Match the KPI count logic: churn_risk > 70
+    customers = db.query(Customer).filter(Customer.company_id == company_id, Customer.churn_risk > 70).order_by(Customer.churn_risk.desc()).limit(1000).all()
+    return [{
+        "id": c.id,
+        "name": c.name,
+        "email": c.email,
+        "churn_probability": c.churn_risk / 100.0 if c.churn_risk > 1 else c.churn_risk,
+        "revenue": float(c.revenue or 0),
+        "communication_channel": c.communication_channel or "Email"
+    } for c in customers]
+
 def get_customers(db: Session, company_id: int, skip: int = 0, limit: int = 20, risk_filter: Optional[str] = None):
     query = db.query(Customer).filter(Customer.company_id == company_id)
     if risk_filter == "high": query = query.filter(Customer.churn_risk > 70)
