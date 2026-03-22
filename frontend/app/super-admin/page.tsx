@@ -46,6 +46,25 @@ function StatCard({ title, value, icon, colorClass }: { title: string, value: st
   )
 }
 
+function Modal({ isOpen, onClose, title, children }: { isOpen: boolean, onClose: () => void, title: string, children: React.ReactNode }) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 backdrop-blur-md bg-black/60">
+      <div className="bg-[#0f1425] border border-white/10 w-full max-w-lg rounded-[2.5rem] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
+        <div className="px-10 py-8 border-b border-white/5 flex justify-between items-center bg-white/5">
+          <h3 className="text-xl font-black tracking-tighter text-white uppercase tracking-[0.2em] text-xs">{title}</h3>
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl transition-all text-slate-500 hover:text-white">
+            <ShieldAlert className="w-5 h-5 rotate-45" />
+          </button>
+        </div>
+        <div className="p-10">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // --- Main Page ---
 
 export default function SuperAdminDashboard() {
@@ -57,6 +76,15 @@ export default function SuperAdminDashboard() {
   const [activeTab, setActiveTab] = useState<'companies' | 'users' | 'requests' | 'logs'>('companies')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  
+  // Modal States
+  const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false)
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false)
+  const [editingItem, setEditingItem] = useState<any>(null)
+  
+  // Form States
+  const [companyForm, setCompanyForm] = useState({ name: '', domain: '' })
+  const [userForm, setUserForm] = useState({ username: '', email: '', password: '', role: 'user', company_id: '' })
 
   const handleLogout = () => {
     localStorage.clear()
@@ -184,18 +212,12 @@ export default function SuperAdminDashboard() {
                  Global multi-tenant infrastructure authorized.
                </p>
             </div>
-            <div className="flex gap-4">
-               <button 
-                onClick={async () => {
-                  const name = prompt("Enter Company Name:");
-                  if(!name) return;
-                  const token = localStorage.getItem('token');
-                  const res = await fetch(`${API_BASE_URL}/api/v1/admin/company`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ name })
-                  });
-                  if(res.ok) fetchAdminData();
+             <div className="flex gap-4">
+                <button 
+                onClick={() => {
+                  setEditingItem(null);
+                  setCompanyForm({ name: '', domain: '' });
+                  setIsCompanyModalOpen(true);
                 }}
                 className="flex items-center gap-2 px-6 py-3 bg-white text-black rounded-2xl font-black text-xs uppercase tracking-widest shadow-[0_10px_30px_rgba(255,255,255,0.2)] hover:scale-105 active:scale-95 transition-all">
                   <Plus className="w-4 h-4" /> Provision Tenant
@@ -246,11 +268,17 @@ export default function SuperAdminDashboard() {
                             <p className="text-[10px] text-purple-500/70 font-black uppercase tracking-widest">Enterprise Class</p>
                          </td>
                          <td className="px-10 py-6 text-xs text-slate-400 font-bold uppercase tracking-widest">{c.created || 'Authorized'}</td>
-                         <td className="px-10 py-6 text-right">
-                           <button className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl transition-all group">
-                             <ChevronRight className="w-5 h-5 text-slate-600 group-hover:text-purple-400" />
-                           </button>
-                         </td>
+                          <td className="px-10 py-6 text-right">
+                            <button 
+                              onClick={() => {
+                                setEditingItem(c);
+                                setCompanyForm({ name: c.name, domain: c.domain || '' });
+                                setIsCompanyModalOpen(true);
+                              }}
+                              className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl transition-all group">
+                              <Settings className="w-5 h-5 text-slate-600 group-hover:text-purple-400" />
+                            </button>
+                          </td>
                        </tr>
                      ))}
                    </tbody>
@@ -259,36 +287,12 @@ export default function SuperAdminDashboard() {
 
                 {activeTab === 'users' && (
                   <>
-                    <div className="px-10 py-6 border-b border-white/5 bg-white/5 flex justify-end">
+                     <div className="px-10 py-6 border-b border-white/5 bg-white/5 flex justify-end">
                       <button 
-                        onClick={async () => {
-                          const username = prompt("Enter Username:");
-                          const email = prompt("Enter Email:");
-                          const password = prompt("Enter Password:");
-                          const role = prompt("Access Level (admin/user/super_admin):", "user") || "user";
-                          const company_id = prompt("Target Company ID (Null for Global):");
-                          
-                          if(!username || !email || !password) return;
-                          
-                          const token = localStorage.getItem('token');
-                          const res = await fetch(`${API_BASE_URL}/api/v1/admin/user`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                            body: JSON.stringify({ 
-                              username, 
-                              email, 
-                              password, 
-                              role, 
-                              company_id: company_id ? parseInt(company_id) : null 
-                            })
-                          });
-                          if(res.ok) {
-                            alert(`Provisioning Successful!\n\nIdentity: ${username}\nAccess: ${role.toUpperCase()}`);
-                            fetchAdminData();
-                          } else {
-                            const err = await res.json();
-                            alert(`AUTH_FAILURE: ${err.detail || 'Protocol Rejection'}`);
-                          }
+                        onClick={() => {
+                          setEditingItem(null);
+                          setUserForm({ username: '', email: '', password: '', role: 'user', company_id: '' });
+                          setIsUserModalOpen(true);
                         }}
                         className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-purple-500 shadow-xl transition-all">
                         <Plus className="w-4 h-4" /> Provision Identity
@@ -333,19 +337,13 @@ export default function SuperAdminDashboard() {
                             </td>
                             <td className="px-10 py-6 text-right flex justify-end gap-3">
                                <button 
-                                 onClick={async () => {
-                                   const new_password = prompt("Relink credentials for " + u.username);
-                                   if (!new_password) return;
-                                   const token = localStorage.getItem('token');
-                                   const res = await fetch(`${API_BASE_URL}/api/v1/admin/user/${u.id}/reset-password`, {
-                                     method: 'POST',
-                                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                                     body: JSON.stringify({ new_password })
-                                   });
-                                   if (res.ok) alert("Protocol Synced: Password Reset");
+                                 onClick={() => {
+                                   setEditingItem(u);
+                                   setUserForm({ username: u.username, email: u.email, password: '', role: u.role, company_id: u.company_id || '' });
+                                   setIsUserModalOpen(true);
                                  }}
                                  className="px-3 py-1.5 bg-white/5 text-slate-400 rounded-xl border border-white/10 hover:bg-white/10 transition-all text-[9px] font-black uppercase tracking-widest">
-                                 Reset
+                                 Relink
                                </button>
                                <button 
                                  disabled={u.role === 'super_admin'}
@@ -474,8 +472,155 @@ export default function SuperAdminDashboard() {
                  </div>
                )}
             </div>
-         </div>
-      </main>
+          </div>
+       </main>
+
+       {/* Modals */}
+       <Modal 
+        isOpen={isCompanyModalOpen} 
+        onClose={() => setIsCompanyModalOpen(false)} 
+        title={editingItem ? "Reconfigure Tenant" : "Provision Tenant"}
+       >
+          <div className="space-y-6">
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Corporate Identity</label>
+              <input 
+                type="text" 
+                placeholder="Company Name"
+                value={companyForm.name}
+                onChange={e => setCompanyForm({...companyForm, name: e.target.value})}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 px-5 text-sm font-bold text-white focus:outline-none focus:border-purple-500/50 transition-all"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Domain Link (Optional)</label>
+              <input 
+                type="text" 
+                placeholder="example.com"
+                value={companyForm.domain}
+                onChange={e => setCompanyForm({...companyForm, domain: e.target.value})}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 px-5 text-sm font-bold text-white focus:outline-none focus:border-purple-500/50 transition-all"
+              />
+            </div>
+            <button 
+              onClick={async () => {
+                const token = localStorage.getItem('token');
+                const url = editingItem 
+                  ? `${API_BASE_URL}/api/v1/admin/company/${editingItem.id}` 
+                  : `${API_BASE_URL}/api/v1/admin/company`;
+                const res = await fetch(url, {
+                  method: editingItem ? 'PUT' : 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                  body: JSON.stringify(companyForm)
+                });
+                if (res.ok) {
+                  setIsCompanyModalOpen(false);
+                  fetchAdminData();
+                }
+              }}
+              className="w-full py-4 bg-white text-black rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-purple-500 hover:text-white transition-all shadow-xl"
+            >
+              {editingItem ? 'Update Configuration' : 'Commit Provisioning'}
+            </button>
+          </div>
+       </Modal>
+
+       <Modal 
+        isOpen={isUserModalOpen} 
+        onClose={() => setIsUserModalOpen(false)} 
+        title={editingItem ? "Recalibrate Identity" : "Initialize Identity"}
+       >
+          <div className="space-y-5">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Username</label>
+                <input 
+                  type="text" 
+                  placeholder="admin_prime"
+                  value={userForm.username}
+                  onChange={e => setUserForm({...userForm, username: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-5 text-sm font-bold text-white focus:outline-none focus:border-purple-500/50 transition-all"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Access Level</label>
+                <select 
+                  value={userForm.role}
+                  onChange={e => setUserForm({...userForm, role: e.target.value})}
+                  className="w-full bg-[#1a1f2e] border border-white/10 rounded-2xl py-3 px-5 text-sm font-bold text-white focus:outline-none focus:border-purple-500/50 transition-all appearance-none"
+                >
+                  <option value="user">USER</option>
+                  <option value="admin">ADMIN</option>
+                  <option value="super_admin">SUPER ADMIN</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Email Link</label>
+              <input 
+                type="email" 
+                placeholder="identity@neural.link"
+                value={userForm.email}
+                onChange={e => setUserForm({...userForm, email: e.target.value})}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-5 text-sm font-bold text-white focus:outline-none focus:border-purple-500/50 transition-all"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Access Key {editingItem && "(Optional)"}</label>
+              <input 
+                type="password" 
+                placeholder="••••••••"
+                value={userForm.password}
+                onChange={e => setUserForm({...userForm, password: e.target.value})}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-5 text-sm font-bold text-white focus:outline-none focus:border-purple-500/50 transition-all"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Affiliated Tenant ID</label>
+              <input 
+                type="text" 
+                placeholder="CID (Null for Infrastructure)"
+                value={userForm.company_id}
+                onChange={e => setUserForm({...userForm, company_id: e.target.value})}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-5 text-sm font-bold text-white focus:outline-none focus:border-purple-500/50 transition-all"
+              />
+            </div>
+
+            <button 
+              onClick={async () => {
+                const token = localStorage.getItem('token');
+                const url = editingItem 
+                  ? `${API_BASE_URL}/api/v1/admin/user/${editingItem.id}` 
+                  : `${API_BASE_URL}/api/v1/admin/user`;
+                
+                const body = { 
+                  ...userForm, 
+                  company_id: userForm.company_id ? parseInt(userForm.company_id) : null 
+                };
+
+                const res = await fetch(url, {
+                  method: editingItem ? 'PUT' : 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                  body: JSON.stringify(body)
+                });
+
+                if (res.ok) {
+                  setIsUserModalOpen(false);
+                  fetchAdminData();
+                } else {
+                  const err = await res.json();
+                  alert(err.detail || "Sync Failed");
+                }
+              }}
+              className="w-full py-4 bg-purple-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-purple-500 transition-all shadow-xl mt-4"
+            >
+              {editingItem ? 'Update User Meta' : 'Initialize Identity'}
+            </button>
+          </div>
+       </Modal>
     </div>
   )
 }

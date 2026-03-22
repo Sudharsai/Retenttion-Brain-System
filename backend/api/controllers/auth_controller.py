@@ -22,8 +22,8 @@ class UserLoginResponse(BaseModel):
     role: str = "user"
 
 def admin_login(db: Session, req: LoginRequest):
-    # Special case: check for default admin if not in DB
-    user = db.query(User).filter(User.username == req.id_field, User.role == 'admin').first()
+    # Special case: check for admin or super_admin
+    user = db.query(User).filter(User.username == req.id_field, User.role.in_(['admin', 'super_admin'])).first()
     
     if not user:
         # Check if we should seed it (for the very first run)
@@ -41,8 +41,8 @@ def admin_login(db: Session, req: LoginRequest):
     if not verify_password(req.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid admin credentials")
         
-    token = create_access_token(data={"sub": user.username, "role": "admin", "uid": user.id})
-    return {"access_token": token, "token_type": "bearer", "username": user.username, "role": "admin"}
+    token = create_access_token(data={"sub": user.username, "role": user.role, "uid": user.id})
+    return {"access_token": token, "token_type": "bearer", "username": user.username, "role": user.role}
 
 def company_login(db: Session, req: LoginRequest):
     # Unified login: Allow login with either email or username for any role

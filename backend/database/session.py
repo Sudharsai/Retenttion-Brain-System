@@ -78,10 +78,13 @@ def init_db():
             try:
                 # Add columns if for some reason create_all missed them and schema.sql didn't run
                 # This is a fail-safe for the specific 'churn_risk' problem reported
-                cols = ["churn_risk", "uplift_score", "persuadability_score", "geography_risk_score", "retention_probability", "expected_recovery"]
+                cols = ["churn_risk", "uplift_score", "persuadability_score", "geography_risk_score", "retention_probability", "expected_recovery", "gender"]
                 for col in cols:
                     try:
-                        conn.execute(text(f"ALTER TABLE customers ADD COLUMN IF NOT EXISTS {col} FLOAT DEFAULT 0.0;"))
+                        if col == "gender":
+                            conn.execute(text(f"ALTER TABLE customers ADD COLUMN IF NOT EXISTS {col} VARCHAR(50);"))
+                        else:
+                            conn.execute(text(f"ALTER TABLE customers ADD COLUMN IF NOT EXISTS {col} FLOAT DEFAULT 0.0;"))
                     except: pass
                 conn.commit()
             except Exception as e:

@@ -59,7 +59,9 @@ def process_neural_dataset(file_path: str, company_id: int):
         # We'll use a local list to accumulate objects and commit them
         for index, (_, row) in enumerate(df_scored.iterrows()):
             ext_id = str(row[mapping.get('customer_id', df.columns[0])])
-            cust_name = str(row[mapping.get('name', mapping.get('customer_id', df.columns[0]))])
+            
+            # If name is missing, use ID as identifier instead of a fallback that might be another field
+            cust_name = str(row.get(mapping.get('name'), ext_id))
             
             customer = existing_customers.get(ext_id)
             if not customer:
@@ -86,6 +88,13 @@ def process_neural_dataset(file_path: str, company_id: int):
             customer.retention_probability = float(row['retention_probability'])
             customer.expected_recovery = float(row['expected_recovery'])
             customer.communication_channel = str(row.get('communication_channel' if 'communication_channel' in row else mapping.get('channel', 'Email'), 'Email'))
+            
+            # Improved gender assignment
+            gender_val = row.get(mapping.get('gender'))
+            if gender_val:
+                customer.gender = str(gender_val)
+            else:
+                customer.gender = "Unknown"
 
             # We MUST flush every record to ensure Customer.id is populated for the dependent tables
             # SQLAlchemy handles this efficiently in a single transaction

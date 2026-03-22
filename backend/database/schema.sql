@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS customers (
     geography_risk_score FLOAT DEFAULT 0.0,
     retention_probability FLOAT DEFAULT 0.0,
     expected_recovery FLOAT DEFAULT 0.0,
+    gender VARCHAR(50),
     last_notified TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,

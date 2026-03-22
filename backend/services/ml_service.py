@@ -16,8 +16,9 @@ class MLService:
         
         keywords = {
             'customer_id': ['customerid', 'id', 'cust', 'uuid', 'external', 'account', 'user_id', 'member_no'],
-            'name': ['name', 'full_name', 'client', 'gender', 'first_name', 'surname', 'account_name'], 
+            'name': ['name', 'full_name', 'client', 'first_name', 'surname', 'account_name', 'customer_name'], 
             'email': ['email', 'mail', 'address', 'contact_point', 'electronic_mail'],
+            'gender': ['gender', 'sex', 'male', 'female'],
             'revenue': ['charges', 'amount', 'revenue', 'spend', 'price', 'billing', 'totalcharges', 'monthlycharges', 'mrr', 'arr', 'sales', 'balance', 'value'],
             'usage': ['tenure', 'months', 'usage', 'activity', 'engagement', 'score', 'points', 'seniority', 'age', 'duration', 'visits', 'logins'],
             'transactions': ['trans', 'count', 'orders', 'freq', 'services', 'calls', 'events', 'purchases', 'interactions', 'shipments'],
@@ -32,27 +33,43 @@ class MLService:
         
         for key, search_words in keywords.items():
             best_match = None
+            
+            # 1. Try exact matches first
             for word in search_words:
-                matches = [cols[c] for c in cols if word in c]
-                if not matches: continue
-                
-                if key in ['revenue', 'usage', 'transactions', 'tenure', 'engagement_score', 'satisfaction', 'support_tickets']:
-                    numeric_matches = []
-                    for m in matches:
-                        sample = pd.to_numeric(df[m].head(10), errors='coerce')
-                        if not sample.isna().all():
-                            numeric_matches.append(m)
-                    
-                    if numeric_matches:
-                        if key == 'revenue':
-                            totals = [m for m in numeric_matches if 'total' in m.lower()]
-                            best_match = totals[0] if totals else numeric_matches[0]
-                        else:
-                            best_match = numeric_matches[0]
-                        break
-                else:
-                    best_match = matches[0]
+                if word in cols:
+                    best_match = cols[word]
                     break
+            
+            # 2. Try partial matches if no exact match
+            if not best_match:
+                for word in search_words:
+                    matches = [cols[c] for c in cols if word in c]
+                    if not matches: continue
+                    
+                    # Heuristic: exclude 'gender' or 'sex' from being matched as 'name'
+                    if key == 'name':
+                        matches = [m for m in matches if 'gender' not in m.lower() and 'sex' not in m.lower()]
+                        if not matches: continue
+
+                    if key in ['revenue', 'usage', 'transactions', 'tenure', 'engagement_score', 'satisfaction', 'support_tickets']:
+                        numeric_matches = []
+                        for m in matches:
+                            try:
+                                sample = pd.to_numeric(df[m].head(10), errors='coerce')
+                                if not sample.isna().all():
+                                    numeric_matches.append(m)
+                            except: continue
+                        
+                        if numeric_matches:
+                            if key == 'revenue':
+                                totals = [m for m in numeric_matches if 'total' in m.lower()]
+                                best_match = totals[0] if totals else numeric_matches[0]
+                            else:
+                                best_match = numeric_matches[0]
+                            break
+                    else:
+                        best_match = matches[0]
+                        break
             
             if best_match:
                 mapping[key] = best_match

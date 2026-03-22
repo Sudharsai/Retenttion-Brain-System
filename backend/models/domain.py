@@ -59,6 +59,7 @@ class Customer(Base):
     geography_risk_score = Column(Float, default=0.0)
     retention_probability = Column(Float, default=0.0)
     expected_recovery = Column(Float, default=0.0)
+    gender = Column(String(50), nullable=True)
     last_notified = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

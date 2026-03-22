@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: rb-database
+    container_name: rb-database-prod
     restart: always
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-retention_brain}
@@ -10,7 +10,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_prod:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
@@ -19,7 +19,7 @@ services:
 
   redis:
     image: redis:alpine
-    container_name: rb-redis
+    container_name: rb-redis-prod
     restart: always
     ports:
       - "6379:6379"
@@ -28,7 +28,7 @@ services:
     build: 
       context: ./backend
       dockerfile: Dockerfile
-    container_name: rb-backend
+    container_name: rb-backend-prod
     restart: always
     ports:
       - "8000:8000"
@@ -36,9 +36,13 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-rb_admin}:${POSTGRES_PASSWORD:-rb_password}@postgres:5432/${POSTGRES_DB:-retention_brain}
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET=${JWT_SECRET:-supersecretjwtkey}
+      - SMTP_SERVER=${SMTP_SERVER}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+    # No local volume mapping for production consistency
     volumes:
-      - ./backend:/app
-      - temp_uploads:/app/temp_uploads
+      - temp_uploads_prod:/app/temp_uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -49,16 +53,15 @@ services:
     build: 
       context: ./backend
       dockerfile: Dockerfile
-    container_name: rb-worker
+    container_name: rb-worker-prod
     command: celery -A main.celery_app worker --loglevel=info
     restart: always
     volumes:
-      - ./backend:/app
-      - temp_uploads:/app/temp_uploads
+      - temp_uploads_prod:/app/temp_uploads
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-rb_admin}:${POSTGRES_PASSWORD:-rb_password}@postgres:5432/${POSTGRES_DB:-retention_brain}
       - REDIS_URL=redis://redis:6379/0
-      - TASK_ALWAYS_EAGER=${TASK_ALWAYS_EAGER:-false}
+      - TASK_ALWAYS_EAGER=false
     depends_on:
       - backend
       - redis
@@ -68,19 +71,16 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: rb-frontend
+    container_name: rb-frontend-prod
     restart: always
     ports:
       - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
+    # No volume mapping for code in production
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
     depends_on:
       - backend
 
 volumes:
-  postgres_data:
-  temp_uploads:
+  postgres_data_prod:
+  temp_uploads_prod:

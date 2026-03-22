@@ -5,7 +5,7 @@ import {
   ShieldAlert, LogOut, Users, 
   Plus, Search,
   LayoutDashboard, Zap,
-  Briefcase
+  Briefcase, Settings, X
 } from 'lucide-react'
 import { API_BASE_URL } from '../../lib/config'
 
@@ -46,6 +46,25 @@ function StatCard({ title, value, icon, colorClass }: { title: string, value: st
   )
 }
 
+function Modal({ isOpen, onClose, title, children }: { isOpen: boolean, onClose: () => void, title: string, children: React.ReactNode }) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 backdrop-blur-md bg-black/60">
+      <div className="bg-[#0f1425] border border-white/10 w-full max-w-lg rounded-[2.5rem] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
+        <div className="px-10 py-8 border-b border-white/5 flex justify-between items-center bg-white/5">
+          <h3 className="text-xl font-black tracking-tighter text-white uppercase tracking-[0.2em] text-xs">{title}</h3>
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl transition-all text-slate-500 hover:text-white">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-10">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // --- Main Page ---
 
 export default function AdminDashboard() {
@@ -55,6 +74,13 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [companyName, setCompanyName] = useState('')
+
+  // Modal States
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false)
+  const [editingItem, setEditingItem] = useState<any>(null)
+  
+  // Form States
+  const [userForm, setUserForm] = useState({ username: '', email: '', password: '', role: 'user' })
 
   const handleLogout = () => {
     localStorage.clear()
@@ -165,42 +191,17 @@ export default function AdminDashboard() {
                </p>
             </div>
              <div className="flex gap-4">
-               {activeTab === 'users' && (
-                 <button 
-                  onClick={async () => {
-                    const username = prompt("Enter Member Username:");
-                    const email = prompt("Enter Email:");
-                    const password = prompt("Enter Temporary Password:");
-                    
-                    if(!username || !email || !password) return;
-                    
-                    const token = localStorage.getItem('token');
-                    const cId = localStorage.getItem('company_id');
-                    
-                    const res = await fetch(`${API_BASE_URL}/api/v1/admin/user`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                      body: JSON.stringify({ 
-                        username, 
-                        email, 
-                        password, 
-                        role: 'user', 
-                        company_id: (cId && cId !== "0") ? parseInt(cId) : null 
-                      })
-                    });
-                    if(res.ok) {
-                      alert(`Member Added Successfully!\n\nUsername: ${username}\nAccess: Standard`);
-                      fetchAdminData();
-                    } else {
-                      const err = await res.json();
-                      const detail = err.detail || 'Generic rejection';
-                      alert(`PROVISIONING_ERROR: ${detail}`);
-                    }
+                {activeTab === 'users' && (
+                  <button 
+                  onClick={() => {
+                    setEditingItem(null);
+                    setUserForm({ username: '', email: '', password: '', role: 'user' });
+                    setIsUserModalOpen(true);
                   }}
                   className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-[0_10px_30px_rgba(37,99,235,0.3)] hover:scale-105 active:scale-95 transition-all">
                     <Plus className="w-4 h-4" /> Add Team Member
                  </button>
-               )}
+                )}
             </div>
          </header>
 
@@ -274,19 +275,13 @@ export default function AdminDashboard() {
                         </td>
                         <td className="px-10 py-6 text-right flex justify-end gap-3">
                            <button 
-                             onClick={async () => {
-                               const new_password = prompt("New password for " + u.username);
-                               if (!new_password) return;
-                               const token = localStorage.getItem('token');
-                               const res = await fetch(`${API_BASE_URL}/api/v1/admin/user/${u.id}/reset-password`, {
-                                 method: 'POST',
-                                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                                 body: JSON.stringify({ new_password })
-                               });
-                               if (res.ok) alert("Password Updated");
+                             onClick={() => {
+                               setEditingItem(u);
+                               setUserForm({ username: u.username, email: u.email, password: '', role: u.role });
+                               setIsUserModalOpen(true);
                              }}
                              className="px-3 py-1.5 bg-white/5 text-slate-400 rounded-xl border border-white/10 hover:bg-white/10 transition-all text-[9px] font-black uppercase tracking-widest">
-                             Reset
+                             Reconfigure
                            </button>
                            <button 
                              onClick={async () => {
@@ -309,8 +304,82 @@ export default function AdminDashboard() {
               </table>
               )}
             </div>
-         </div>
-      </main>
+          </div>
+       </main>
+
+       {/* User Modal */}
+       <Modal 
+        isOpen={isUserModalOpen} 
+        onClose={() => setIsUserModalOpen(false)} 
+        title={editingItem ? "Recalibrate Identity" : "Initialize Identity"}
+       >
+          <div className="space-y-6">
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Username</label>
+              <input 
+                type="text" 
+                placeholder="admin_prime"
+                value={userForm.username}
+                onChange={e => setUserForm({...userForm, username: e.target.value})}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 px-5 text-sm font-bold text-white focus:outline-none focus:border-blue-500/50 transition-all"
+              />
+            </div>
+            
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Email Configuration</label>
+              <input 
+                type="email" 
+                placeholder="identity@enterprise.com"
+                value={userForm.email}
+                onChange={e => setUserForm({...userForm, email: e.target.value})}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 px-5 text-sm font-bold text-white focus:outline-none focus:border-blue-500/50 transition-all"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Access Key {editingItem && "(Optional)"}</label>
+              <input 
+                type="password" 
+                placeholder="••••••••"
+                value={userForm.password}
+                onChange={e => setUserForm({...userForm, password: e.target.value})}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 px-5 text-sm font-bold text-white focus:outline-none focus:border-blue-500/50 transition-all"
+              />
+            </div>
+
+            <button 
+              onClick={async () => {
+                const token = localStorage.getItem('token');
+                const cId = localStorage.getItem('company_id');
+                const url = editingItem 
+                  ? `${API_BASE_URL}/api/v1/admin/user/${editingItem.id}` 
+                  : `${API_BASE_URL}/api/v1/admin/user`;
+                
+                const body = { 
+                  ...userForm, 
+                  company_id: (cId && cId !== "0") ? parseInt(cId) : null 
+                };
+
+                const res = await fetch(url, {
+                  method: editingItem ? 'PUT' : 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                  body: JSON.stringify(body)
+                });
+
+                if (res.ok) {
+                  setIsUserModalOpen(false);
+                  fetchAdminData();
+                } else {
+                  const err = await res.json();
+                  alert(err.detail || "Infrastructure Synchronization Failed");
+                }
+              }}
+              className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-500 transition-all shadow-xl mt-4"
+            >
+              {editingItem ? 'Update Credentials' : 'Commit Provisioning'}
+            </button>
+          </div>
+       </Modal>
     </div>
   )
 }

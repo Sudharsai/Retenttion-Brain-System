@@ -23,6 +23,8 @@ export interface CustomerData {
   retention_probability?: number;
   expected_recovery?: number;
   communication_channel?: string;
+  gender?: string;
+  external_customer_id?: string;
 }
 
 // --- Sub-components ---
@@ -88,6 +90,7 @@ export function DrillDownModal({
                 <th className="px-8 py-5 tracking-widest font-black">Ref ID</th>
                 <th className="px-8 py-5 tracking-widest font-black">Identity</th>
                 <th className="px-8 py-5 tracking-widest font-black">Channel</th>
+                <th className="px-8 py-5 tracking-widest font-black text-center">Gender</th>
                 <th className="px-8 py-5 text-center tracking-widest font-black">Churn Risk</th>
                 <th className="px-8 py-5 text-center tracking-widest font-black">Uplift</th>
                 <th className="px-8 py-5 text-right tracking-widest font-black">Revenue</th>
@@ -96,7 +99,9 @@ export function DrillDownModal({
             <tbody className="divide-y divide-white/5">
               {data.map((item, idx) => (
                 <tr key={item.id || idx} className="hover:bg-white/5 transition-colors group">
-                  <td className="px-8 py-5 font-mono text-xs text-slate-500">#{item.id}</td>
+                  <td className="px-8 py-5 font-mono text-[10px] text-blue-400 font-bold">
+                    {item.external_customer_id || `#${item.id}`}
+                  </td>
                   <td className="px-8 py-5">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-[10px] font-black text-blue-400">
@@ -108,6 +113,15 @@ export function DrillDownModal({
                   <td className="px-8 py-5">
                     <span className="px-2 py-1 bg-white/5 rounded text-[10px] font-bold text-slate-400 border border-white/10 uppercase">
                       {item.communication_channel || 'Email'}
+                    </span>
+                  </td>
+                  <td className="px-8 py-5 text-center">
+                    <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest border ${
+                      item.gender?.toLowerCase() === 'female' ? 'bg-pink-500/10 text-pink-400 border-pink-500/20' : 
+                      item.gender?.toLowerCase() === 'male' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 
+                      'bg-white/5 text-slate-500 border-white/10'
+                    }`}>
+                      {item.gender || 'Unknown'}
                     </span>
                   </td>
                   <td className="px-8 py-5 text-center">

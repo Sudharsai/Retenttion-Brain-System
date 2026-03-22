@@ -34,8 +34,10 @@ def get_high_risk_drilldown(db: Session, company_id: int):
     customers = db.query(Customer).filter(Customer.company_id == company_id, Customer.churn_risk > 70).order_by(Customer.churn_risk.desc()).limit(1000).all()
     return [{
         "id": c.id,
+        "external_customer_id": c.external_customer_id,
         "name": c.name,
         "email": c.email,
+        "gender": c.gender or "Unknown",
         "churn_probability": c.churn_risk / 100.0 if c.churn_risk > 1 else c.churn_risk,
         "revenue": float(c.revenue or 0),
         "communication_channel": c.communication_channel or "Email"
@@ -54,7 +56,14 @@ def get_uplift_insights(db: Session, company_id: int):
 
 def get_revenue_risk_details(db: Session, company_id: int):
     results = db.query(Customer, RevenueData).join(RevenueData).filter(Customer.company_id == company_id).order_by(RevenueData.risk_amount.desc()).limit(50).all()
-    return [{"customer_name": c.name, "revenue": float(c.revenue or 0), "risk_amount": float(r.risk_amount or 0), "churn_probability": c.churn_risk} for c, r in results]
+    return [{
+        "name": c.name, 
+        "external_customer_id": c.external_customer_id,
+        "gender": c.gender or "Unknown",
+        "revenue": float(c.revenue or 0), 
+        "risk_amount": float(r.risk_amount or 0), 
+        "churn_probability": c.churn_risk / 100.0 if c.churn_risk > 1 else c.churn_risk
+    } for c, r in results]
 
 def get_datasets(db: Session, company_id: int):
     return db.query(Dataset).filter(Dataset.company_id == company_id).order_by(Dataset.created_at.desc()).all()

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database.session import get_db
 from api.routes.auth_routes import get_admin_user
@@ -28,6 +28,13 @@ def register_company(req: admin_controller.CompanyCreate, db: Session = Depends(
         "data": admin_controller.create_company(db, req)
     }
 
+@router.put("/company/{company_id}")
+def edit_company(company_id: int, req: admin_controller.CompanyCreate, db: Session = Depends(get_db), admin: dict = Depends(get_admin_user)):
+    return {
+        "success": True,
+        "data": admin_controller.update_company(db, company_id, req)
+    }
+
 @router.get("/users")
 def list_users(db: Session = Depends(get_db), admin: dict = Depends(get_admin_user)):
     return {
@@ -40,6 +47,15 @@ def register_user(req: admin_controller.UserCreate, db: Session = Depends(get_db
     return {
         "success": True,
         "data": admin_controller.create_user(db, req, admin)
+    }
+
+@router.put("/user/{user_id}")
+def edit_user(user_id: int, req: admin_controller.UserCreate, db: Session = Depends(get_db), admin: dict = Depends(get_admin_user)):
+    # Note: UserCreate might be reused or a UserUpdate schema could be created.
+    # For now, reusing UserCreate for simplicity.
+    return {
+        "success": True,
+        "data": admin_controller.update_user(db, user_id, req)
     }
 
 @router.delete("/user/{user_id}")
