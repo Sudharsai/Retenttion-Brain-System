@@ -5,12 +5,33 @@ from models.domain import Base
 from models.campaign import Campaign, CampaignEmail
 from dotenv import load_dotenv
 
-# Load .env file
-load_dotenv()
+# Load .env file - ONLY in local development
+# Render and other platforms set environment variables directly
+if not os.getenv("RENDER"):
+    load_dotenv()
 
 # Smart Database Resolution
-# Prioritize explicit PostgreSQL (Docker/Prod) but fallback to SQLite for local ease
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./retention_brain.db")
+# Prioritize platform provided DATABASE_URL (Render/Heroku/Railway)
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+# Debugging on Render (Masked)
+if os.getenv("RENDER"):
+    if DATABASE_URL:
+        # Mask the sensitive parts for logging
+        masked_url = DATABASE_URL
+        if "@" in DATABASE_URL:
+            # Mask everything between '://' and '@'
+            parts = DATABASE_URL.split("@")
+            prefix = parts[0].split("://")
+            masked_url = f"{prefix[0]}://****@{parts[1]}"
+        print(f"DEBUG: Using Platform DATABASE_URL (masked): {masked_url}")
+    else:
+        print("DEBUG: DATABASE_URL is NOT set in the environment!")
+
+# Fallback to local SQLite if no DATABASE_URL is provided
+if not DATABASE_URL:
+    DATABASE_URL = "sqlite:///./retention_brain.db"
+    print("DEBUG: Falling back to SQLite.")
 
 # Handle SQLite specific arguments
 connect_args = {}
