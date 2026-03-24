@@ -3,6 +3,7 @@ services:
   - type: web
     name: rb-backend
     env: python
+    rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
@@ -30,6 +31,7 @@ services:
   - type: worker
     name: rb-worker
     env: python
+    rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: celery -A main.celery_app worker --loglevel=info
     envVars:
@@ -47,6 +49,7 @@ services:
   - type: web
     name: rb-frontend
     env: node
+    rootDir: frontend
     buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
