@@ -106,6 +106,18 @@ CREATE TABLE IF NOT EXISTS alerts (
     FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS retention_actions (
+    id SERIAL PRIMARY KEY,
+    customer_id INT NOT NULL,
+    action_type VARCHAR(50),
+    campaign_type VARCHAR(50),
+    priority_score FLOAT,
+    status VARCHAR(50) DEFAULT 'PENDING',
+    scheduled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+);
+
 -- Analytics View for high-speed dashboard calculations
 CREATE OR REPLACE VIEW v_retention_metrics AS
 SELECT 

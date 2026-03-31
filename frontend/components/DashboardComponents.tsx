@@ -9,11 +9,57 @@ import {
 // --- Types ---
 export type MetricType = 'total' | 'high_risk' | 'revenue_risk' | 'persuadable';
 
+export interface DashboardMetrics {
+  total_customers: number;
+  high_risk_customers: number;
+  avg_churn_prob: number;
+  revenue_at_risk: number;
+  persuadables: number;
+  nrr?: number;
+  monthly_churn?: number;
+  annual_churn?: number;
+  avg_ltv?: number;
+  expected_roi?: number;
+  recovery_potential?: number;
+  portfolio_revenue?: number;
+  total_ltv?: number;
+}
+
+export interface ExecutiveMetrics {
+  metrics: {
+    nrr: number;
+    monthly_churn: number;
+    annual_churn: number;
+    avg_ltv: number;
+    total_ltv: number;
+    portfolio_revenue: number;
+    revenue_at_risk: number;
+    expected_roi: number;
+    recovery_potential: number;
+  };
+  trajectories: {
+    churn: number[];
+    ltv: number[];
+  };
+  summary?: {
+    estimated_recovery: number;
+    recovery_statement: string;
+    strategic_advisory: string;
+  };
+  channel_roi?: {
+    name: string;
+    roi: number;
+    cost: number;
+  }[];
+}
+
 export interface CustomerData {
   id: string | number;
   name: string;
   email: string;
   churn_probability?: number;
+  churn_risk?: number;
+  ai_strategy?: string;
   uplift_score?: number;
   revenue?: number;
   revenue_at_risk?: number;
@@ -25,6 +71,13 @@ export interface CustomerData {
   communication_channel?: string;
   gender?: string;
   external_customer_id?: string;
+  action_type?: string;
+  campaign_type?: string;
+  priority_score?: number;
+  subscription_type?: string;
+  last_active_days?: number;
+  segment?: string;
+  channel?: string;
 }
 
 // --- Sub-components ---
@@ -69,7 +122,7 @@ export function DrillDownModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="w-full max-w-5xl max-h-[85vh] overflow-hidden glass rounded-[2rem] shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10 flex flex-col scale-in-center">
+      <div className="w-full max-w-6xl max-h-[85vh] overflow-hidden glass rounded-[2rem] shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10 flex flex-col scale-in-center">
         <div className="p-8 border-b border-white/5 flex justify-between items-center bg-white/5">
           <div>
             <h3 className="text-2xl font-black text-white flex items-center gap-3">
@@ -89,10 +142,11 @@ export function DrillDownModal({
               <tr>
                 <th className="px-8 py-5 tracking-widest font-black">Ref ID</th>
                 <th className="px-8 py-5 tracking-widest font-black">Identity</th>
+                <th className="px-8 py-5 text-center tracking-widest font-black">Gender</th>
+                <th className="px-8 py-5 tracking-widest font-black">Segment</th>
                 <th className="px-8 py-5 tracking-widest font-black">Channel</th>
-                <th className="px-8 py-5 tracking-widest font-black text-center">Gender</th>
-                <th className="px-8 py-5 text-center tracking-widest font-black">Churn Risk</th>
-                <th className="px-8 py-5 text-center tracking-widest font-black">Uplift</th>
+                <th className="px-8 py-5 text-center tracking-widest font-black">Risk</th>
+                <th className="px-8 py-5 text-center tracking-widest font-black">AI Insight</th>
                 <th className="px-8 py-5 text-right tracking-widest font-black">Revenue</th>
               </tr>
             </thead>
@@ -110,28 +164,44 @@ export function DrillDownModal({
                       <span className="font-bold text-white tracking-tight">{item.name}</span>
                     </div>
                   </td>
-                  <td className="px-8 py-5">
-                    <span className="px-2 py-1 bg-white/5 rounded text-[10px] font-bold text-slate-400 border border-white/10 uppercase">
-                      {item.communication_channel || 'Email'}
+                  <td className="px-8 py-5 text-center">
+                    <span className="text-[10px] font-black text-slate-400 uppercase">
+                      {item.gender || 'Unknown'}
                     </span>
                   </td>
-                  <td className="px-8 py-5 text-center">
+                  <td className="px-8 py-5">
+                    <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest border border-blue-500/20 bg-blue-500/5 text-blue-400`}>
+                      {item.segment || 'MODERATE'}
+                    </span>
+                  </td>
+                  <td className="px-8 py-5">
                     <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest border ${
-                      item.gender?.toLowerCase() === 'female' ? 'bg-pink-500/10 text-pink-400 border-pink-500/20' : 
-                      item.gender?.toLowerCase() === 'male' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 
+                      item.channel === 'CALL' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 
+                      item.channel === 'EMAIL' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 
                       'bg-white/5 text-slate-500 border-white/10'
                     }`}>
-                      {item.gender || 'Unknown'}
+                      {item.channel || 'AUTO'}
                     </span>
                   </td>
                   <td className="px-8 py-5 text-center">
                     <div className="inline-flex items-center gap-2">
-                       <div className={`w-1.5 h-1.5 rounded-full ${(item.churn_probability ?? 0) > 0.6 ? 'bg-red-500' : 'bg-emerald-500'}`} />
-                       <span className="font-black text-white">{( (item.churn_probability ?? 0) * 100).toFixed(0)}%</span>
+                       <div className={`w-1.5 h-1.5 rounded-full ${(item.churn_risk ?? 0) > 60 ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                       <span className="font-black text-white">{(item.churn_risk ?? 0).toFixed(0)}%</span>
                     </div>
                   </td>
                   <td className="px-8 py-5 text-center">
-                    <span className="font-black text-emerald-400">+{((item.uplift_score ?? 0) * 100).toFixed(1)}%</span>
+                    {item.ai_strategy ? (
+                      <div className="group relative">
+                        <span className="px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 cursor-help">
+                          View Strategy
+                        </span>
+                        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-64 p-4 bg-slate-900 border border-white/10 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 text-left">
+                          <p className="text-[10px] leading-relaxed text-slate-300 italic">{item.ai_strategy}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">N/A</span>
+                    )}
                   </td>
                   <td className="px-8 py-5 text-right font-black text-white">
                     ${(item.revenue ?? 0).toLocaleString()}

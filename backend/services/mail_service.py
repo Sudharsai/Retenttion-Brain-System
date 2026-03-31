@@ -3,6 +3,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import os
 from typing import List
+from services.ai_service import AIService
 
 # Mock SMTP settings - In production, these would be in .env
 SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
@@ -10,7 +11,7 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "notifications@retention-brain.io")
 SMTP_PASS = os.getenv("SMTP_PASS", "neural-sync-secret")
 
-def send_retention_email(recipient_email: str, customer_name: str):
+def send_retention_email(recipient_email: str, customer_name: str, customer_data: dict = None):
     """
     Sends a personalized 'Gain Back' email to a high-risk customer.
     """
@@ -22,18 +23,9 @@ def send_retention_email(recipient_email: str, customer_name: str):
     msg['To'] = recipient_email
     msg['Subject'] = f"Strategic Update for {customer_name}"
 
-    body = f"""
-    Hello {customer_name},
-
-    We value your partnership and noticed some changes in your usage patterns. 
-    As a valued member of our network, we'd like to offer you an exclusive 
-    strategic review and a 20% loyalty discount on your next cycle.
-
-    Let's sync up to ensure you're getting the most out of our neural services.
-
-    Best regards,
-    The Retention Brain Team
-    """
+    # Generate AI-powered content
+    ai_input = customer_data or {"name": customer_name, "email": recipient_email}
+    body = AIService.generate_retention_content(ai_input, mode="email")
     
     msg.attach(MIMEText(body, 'plain'))
 

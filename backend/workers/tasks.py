@@ -1,14 +1,36 @@
-import pandas as pd
-from celery import Celery
-import os
-from database.session import SessionLocal
-from models.domain import Customer, ChurnScore, UpliftScore, RevenueData, Company, AppLog, Dataset, Alert
+from models.domain import Customer, ChurnScore, UpliftScore, RevenueData, Company, AppLog, Dataset, Alert, RetentionAction, RetentionFeedback
 from services.ml_service import MLService
+from services.segmentation_engine import assign_segment
+from services.retention_decision_engine import decide_retention_action
+from services.ai_service import AIService
 from typing import Dict
 from decimal import Decimal
+import os
+import pandas as pd
+from celery import Celery
+from database.session import SessionLocal
+from datetime import datetime, timedelta
+from sqlalchemy import func, Integer
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 celery = Celery("retention_worker", broker=REDIS_URL)
+
+@celery.task(name="send_sms_task")
+def send_sms_task(customer_id: int, message: str):
+    print(f"SMS: Sending to customer {customer_id}: {message}")
+    return True
+
+@celery.task(name="notify_sales_team_task")
+def notify_sales_team_task(customer_id: int, campaign: str):
+    print(f"SALES: Notifying team for customer {customer_id} (Campaign: {campaign})")
+    return True
+
+@celery.task(name="run_retention_engine_task")
+def run_retention_engine_task(company_id: int):
+    """
+    Manual trigger for the full RDE workflow across all customers.
+    """
+    return execute_retention_actions(company_id)
 
 @celery.task(name="process_neural_dataset")
 def process_neural_dataset(file_path: str, company_id: int):
@@ -39,32 +61,68 @@ def process_neural_dataset(file_path: str, company_id: int):
         
         print(f"DEBUG: Dataset Mapping identified: {mapping}")
         
-        essential = ['customer_id', 'revenue', 'usage']
-        missing = [key for key in essential if key not in mapping]
-        if missing:
-            print(f"DEBUG: Missing essential columns: {missing}")
+        # Step 2.5: INDUSTRY-GRADE CLEANUP (Remove all legacy data for this company)
+        print(f"DEBUG: Performing total legacy purge for Company {company_id} to ensure clean slate...")
+        
+        from models.campaign import Campaign
+        from models.domain import Alert, RetentionFeedback
+        
+        # 1. Clear Customers (Cascades to ChurnScore, UpliftScore, RevenueData, RetentionAction, RetentionFeedback)
+        db.query(Customer).filter(Customer.company_id == company_id).delete(synchronize_session=False)
+        
+        # 2. Clear Campaigns
+        db.query(Campaign).filter(Campaign.company_id == company_id).delete(synchronize_session=False)
+        
+        # 3. Clear Alerts
+        db.query(Alert).filter(Alert.company_id == company_id).delete(synchronize_session=False)
+        
+        # 4. Clear old Datasets (except the current one)
+        db.query(Dataset).filter(Dataset.company_id == company_id, Dataset.id != dataset.id).delete(synchronize_session=False)
+        
+        db.commit() # Atomic purge
+        print("DEBUG: Clean slate confirmed. Repository reset for new intelligence wave.")
+        
+        essential = ['customer_id', 'revenue']
+        # Check for usage OR tenure
+        if 'usage' not in mapping and 'tenure' not in mapping:
+            print(f"DEBUG: Missing essential columns: ['usage' or 'tenure']")
             dataset.status = "failed"
             db.commit()
-            return {"error": f"Missing columns: {missing}"}
+            return {"error": "Missing columns: ['usage' or 'tenure']"}
+        
+        # Map tenure to usage if usage is missing
+        if 'usage' not in mapping and 'tenure' in mapping:
+            mapping['usage'] = mapping['tenure']
 
         # Step 3: ML Scoring
+        print("DEBUG: Starting ML Training & Scoring...")
         df_scored, metrics = MLService.train_and_score(df)
+        print(f"DEBUG: ML Completed. Accuracy: {metrics.get('accuracy')}")
 
-        # Batch Fetch Existing Customers
-        existing_customers = {c.external_customer_id: c for c in db.query(Customer).filter(Customer.company_id == company_id).all()}
+        # Batch Fetch Existing Customers - Optimize by only fetching IDs
+        print("DEBUG: Fetching existing customer mappings from DB...")
+        existing_customers = {ext_id: cid for ext_id, cid in db.query(Customer.external_customer_id, Customer.id).filter(Customer.company_id == company_id).all()}
+        print(f"DEBUG: Found {len(existing_customers)} existing customer mappings.")
         
         processed_count = 0
-        batch_size = 500
+        batch_size = 200 # Reduced batch size for better commit frequency
         
         # We'll use a local list to accumulate objects and commit them
         for index, (_, row) in enumerate(df_scored.iterrows()):
             ext_id = str(row[mapping.get('customer_id', df.columns[0])])
             
-            # If name is missing, use ID as identifier instead of a fallback that might be another field
-            cust_name = str(row.get(mapping.get('name'), ext_id))
+            # Name generation refinement
+            raw_name = str(row.get(mapping.get('name'), ''))
+            if not raw_name or raw_name == ext_id:
+                # Use a human-readable placeholder if name is missing
+                cust_prefix = "Member"
+                last_segment = ext_id.split('-')[-1][:4] if '-' in ext_id else ext_id[:4]
+                cust_name = f"{cust_prefix} {last_segment}"
+            else:
+                cust_name = raw_name
             
-            customer = existing_customers.get(ext_id)
-            if not customer:
+            customer_id = existing_customers.get(ext_id)
+            if not customer_id:
                 customer = Customer(
                     company_id=company_id,
                     external_customer_id=ext_id,
@@ -73,62 +131,123 @@ def process_neural_dataset(file_path: str, company_id: int):
                     email=f"{ext_id}@fallback.tech"
                 )
                 db.add(customer)
-                existing_customers[ext_id] = customer
-            
-            # Update values
+                db.flush() # Get the new ID
+                customer_id = customer.id
+                existing_customers[ext_id] = customer_id
+            else:
+                customer = db.query(Customer).get(customer_id)
             customer.name = cust_name
             customer.dataset_id = dataset.id
             customer.revenue = Decimal(str(row['revenue']))
             customer.usage_score = float(row['usage'])
             customer.transactions_count = int(float(row['transactions']))
-            customer.churn_risk = float(row['churn_probability'])
-            customer.uplift_score = float(row['uplift_score'])
-            customer.persuadability_score = float(row['persuadability_score'])
-            customer.geography_risk_score = float(row['geography_risk_score'])
-            customer.retention_probability = float(row['retention_probability'])
-            customer.expected_recovery = float(row['expected_recovery'])
-            customer.communication_channel = str(row.get('communication_channel' if 'communication_channel' in row else mapping.get('channel', 'Email'), 'Email'))
+            customer.churn_risk = float(row.get('churn_probability', 50.0))
+            customer.uplift_score = float(row.get('uplift_score', 0.05))
+            customer.persuadability_score = float(row.get('persuadability_score', 50.0))
+            customer.geography_risk_score = float(row.get('geography_risk_score', 25.0))
+            customer.retention_probability = float(row.get('retention_probability', 50.0))
+            customer.gender = row.get('gender', 'Unknown')
             
-            # Improved gender assignment
-            gender_val = row.get(mapping.get('gender'))
-            if gender_val:
-                customer.gender = str(gender_val)
-            else:
-                customer.gender = "Unknown"
-
-            # We MUST flush every record to ensure Customer.id is populated for the dependent tables
-            # SQLAlchemy handles this efficiently in a single transaction
+            # Use email from dataset if mapped, else fallback
+            if mapping.get('email') and mapping['email'] in row:
+                customer.email = row[mapping['email']]
+            elif not customer.email:
+                customer.email = f"{ext_id}@fallback.tech"
+            customer.expected_recovery = float(row['expected_recovery'])
+            customer.subscription_type = str(row.get('subscription_type', 'Standard'))
+            customer.last_active_days = int(float(row.get('last_active_days', 0)))
+            
+            customer.engagement_score = float(row.get('engagement_score', 0.5))
+            
+            # Step 4: Industry-Grade Segmentation
+            customer.segment = assign_segment({
+                "churn_probability": customer.churn_risk,
+                "revenue": float(customer.revenue),
+                "last_active_days": customer.last_active_days,
+                "engagement_score": customer.engagement_score
+            })
+            
             db.flush()
             
-            # Upsert Churn Score
-            churn = db.query(ChurnScore).filter(ChurnScore.customer_id == customer.id).first()
-            if not churn:
-                churn = ChurnScore(customer_id=customer.id)
-                db.add(churn)
+            # Step 5: Persistence of Scores
+            # Churn Score
+            cs = ChurnScore(
+                customer_id=customer.id,
+                probability=customer.churn_risk,
+                factors={
+                    "engagement": customer.engagement_score,
+                    "recency": customer.last_active_days,
+                    "subscription": customer.subscription_type
+                }
+            )
+            db.add(cs)
+
+            # Revenue Data
+            rd = RevenueData(
+                customer_id=customer.id,
+                total_revenue=customer.revenue,
+                risk_amount=float(customer.revenue or 0) * (customer.churn_risk / 100.0)
+            )
+            db.add(rd)
+
+            # Uplift Score
+            if customer.uplift_score > 0:
+                # Generate AI Strategy for high-risk or high-uplift customers
+                ai_strategy = None
+                if customer.churn_risk > 70 or customer.uplift_score > 0.15:
+                    try:
+                        ai_strategy = AIService.generate_retention_content({
+                            "name": customer.name,
+                            "churn_risk": customer.churn_risk,
+                            "revenue": float(customer.revenue or 0),
+                            "usage_score": customer.usage_score,
+                            "segment": customer.segment,
+                            "gender": customer.gender,
+                            "last_active_days": customer.last_active_days
+                        }, mode="strategy")
+                    except Exception as ai_e:
+                        print(f"AI Strategy generation failed for {customer.id}: {ai_e}")
+
+                us = UpliftScore(
+                    customer_id=customer.id,
+                    score=customer.uplift_score,
+                    strategy=ai_strategy
+                )
+                db.add(us)
             
-            churn.probability = float(row['churn_probability']) / 100.0
-            churn.factors = {"usage": float(row['usage']), "geo_risk": float(row['geography_risk_score'])}
+            # Step 5: Decision Engine
+            decision = decide_retention_action({
+                "churn_probability": customer.churn_risk,
+                "revenue": float(customer.revenue),
+                "segment": customer.segment,
+                "last_active_days": customer.last_active_days,
+                "engagement_score": 0.5 # Default
+            })
             
-            # Upsert Revenue Data
-            rev = db.query(RevenueData).filter(RevenueData.customer_id == customer.id).first()
-            if not rev:
-                rev = RevenueData(customer_id=customer.id)
-                db.add(rev)
+            # Upsert Retention Action
+            ra = db.query(RetentionAction).filter(RetentionAction.customer_id == customer.id).first()
+            if not ra:
+                ra = RetentionAction(customer_id=customer.id)
+                db.add(ra)
             
-            rev.total_revenue = customer.revenue
-            rev.risk_amount = Decimal(str(float(customer.revenue) * (float(row['churn_probability']) / 100.0)))
+            ra.segment = customer.segment
+            ra.action_type = decision["action_type"]
+            ra.campaign_type = decision["campaign_type"]
+            ra.priority_score = decision["priority_score"]
+            ra.channel = decision["channel"]
+            ra.status = "PENDING"
             
             processed_count += 1
             if processed_count % batch_size == 0:
                 db.commit()
-                print(f"DEBUG: Committed batch {processed_count}")
+                print(f"DEBUG: Committed batch {processed_count}/{len(df_scored)}")
 
         dataset.row_count = processed_count
         dataset.status = "completed"
         db.commit()
         
-        # Trigger automation
-        send_automated_retention_emails.delay(company_id)
+        # Trigger Multi-Channel Execution
+        execute_retention_actions.delay(company_id)
         return {"status": "Complete", "processed_count": processed_count, "dataset_id": dataset.id}
 
     except Exception as e:
@@ -141,45 +260,110 @@ def process_neural_dataset(file_path: str, company_id: int):
         return {"error": str(e)}
     finally:
         db.close()
-        if os.path.exists(file_path):
+        # Only remove if it's in the temp_uploads directory
+        if os.path.exists(file_path) and "temp_uploads" in file_path:
             os.remove(file_path)
 
-@celery.task(name="send_automated_retention_emails")
-def send_automated_retention_emails(company_id: int):
+@celery.task(name="execute_retention_actions")
+def execute_retention_actions(company_id: int):
     """
-    Identifies customers with churn_risk > 0.8 who haven't been notified recently.
+    Multi-Channel Trigger System:
+    1. Fetch PENDING actions for the company.
+    2. Dispatch to specific channels.
+    3. Update status and log feedback loop start.
     """
-    from services.mail_service import send_retention_email
-    from datetime import datetime, timedelta
-    
     db = SessionLocal()
     try:
-        # Get high-risk customers who haven't been notified in the last 7 days
-        seven_days_ago = datetime.utcnow() - timedelta(days=7)
-        at_risk = db.query(Customer).filter(
+        actions = db.query(RetentionAction).join(Customer).filter(
             Customer.company_id == company_id,
-            Customer.churn_risk >= 0.8,
-            (Customer.last_notified == None) | (Customer.last_notified < seven_days_ago)
+            RetentionAction.status == "PENDING"
         ).all()
         
-        count = 0
-        for customer in at_risk:
-            if customer.email and send_retention_email(customer.email, customer.name):
-                customer.last_notified = datetime.utcnow()
-                count += 1
+        stats = {"CALL": 0, "EMAIL": 0, "SMS": 0, "NONE": 0}
+        
+        for action in actions:
+            if action.action_type == "NONE":
+                action.status = "SKIPPED"
+                stats["NONE"] += 1
+                continue
                 
+            # Dispatch based on Channel OR Action Type
+            channel = action.channel if action.channel != "AUTO" else action.action_type
+            
+            if channel == "CALL":
+                notify_sales_team_task.delay(action.customer_id, action.campaign_type)
+                stats["CALL"] += 1
+            elif channel == "EMAIL":
+                send_retention_email_task.delay(action.customer_id, action.campaign_type)
+                stats["EMAIL"] += 1
+            elif channel == "SMS":
+                send_sms_task.delay(action.customer_id, f"Priority offer: {action.campaign_type}")
+                stats["SMS"] += 1
+            
+            action.status = "SENT"
+            action.scheduled_at = datetime.utcnow()
+            
+            # Initialize Feedback Loop record
+            feedback = RetentionFeedback(
+                customer_id=action.customer_id,
+                action_type=action.action_type,
+                campaign_type=action.campaign_type,
+                response="IGNORED" # Initial state
+            )
+            db.add(feedback)
+            
         db.commit()
+        return {"status": "success", "counts": stats}
+    finally:
+        db.close()
+
+@celery.task(name="send_retention_email_task")
+def send_retention_email_task(customer_id: int, campaign: str):
+    from services.mail_service import send_retention_email
+    db = SessionLocal()
+    try:
+        customer = db.query(Customer).filter(Customer.id == customer_id).first()
+        if customer and customer.email:
+            customer_data = {
+                "name": customer.name,
+                "churn_risk": customer.churn_risk,
+                "revenue": float(customer.revenue or 0),
+                "usage_score": customer.usage_score,
+                "segment": customer.segment,
+                "gender": customer.gender,
+                "last_active_days": customer.last_active_days
+            }
+            success = send_retention_email(customer.email, customer.name, customer_data)
+            if success:
+                customer.last_notified = datetime.utcnow()
+                db.commit()
+                return True
+        return False
+    finally:
+        db.close()
+
+@celery.task(name="analyze_feedback_loop")
+def analyze_feedback_loop():
+    """
+    Periodic task to calculate success metrics for model optimization.
+    """
+    db = SessionLocal()
+    try:
+        # Calculate success rate per campaign
+        from sqlalchemy import func
+        results = db.query(
+            RetentionFeedback.campaign_type,
+            func.count(RetentionFeedback.id).label("total"),
+            func.sum(func.cast(RetentionFeedback.success, Integer)).label("successes")
+        ).group_by(RetentionFeedback.campaign_type).all()
         
-        # Log the action (using the Alert model for visibility on dashboard)
-        alert = Alert(
-            company_id=company_id,
-            type="SUCCESS",
-            details=f"Automated Outreach: Sent {count} gain-back emails to high-risk customers."
-        )
-        db.add(alert)
-        db.commit()
-        
-        return {"status": "success", "emails_sent": count}
+        metrics = {}
+        for row in results:
+            rate = (row.successes / row.total) if row.total > 0 else 0
+            metrics[row.campaign_type] = {"success_rate": rate, "total": row.total}
+            
+        print(f"Feedback Analysis: {metrics}")
+        return metrics
     finally:
         db.close()
 

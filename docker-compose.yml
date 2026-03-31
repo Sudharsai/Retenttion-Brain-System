@@ -36,6 +36,11 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-rb_admin}:${POSTGRES_PASSWORD:-rb_password}@postgres:5432/${POSTGRES_DB:-retention_brain}
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET=${JWT_SECRET:-supersecretjwtkey}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - SMTP_SERVER=${SMTP_SERVER}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
     volumes:
       - ./backend:/app
       - temp_uploads:/app/temp_uploads
@@ -59,6 +64,11 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-rb_admin}:${POSTGRES_PASSWORD:-rb_password}@postgres:5432/${POSTGRES_DB:-retention_brain}
       - REDIS_URL=redis://redis:6379/0
       - TASK_ALWAYS_EAGER=${TASK_ALWAYS_EAGER:-false}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - SMTP_SERVER=${SMTP_SERVER}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
     depends_on:
       - backend
       - redis
@@ -72,10 +82,6 @@ services:
     restart: always
     ports:
       - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     depends_on:

@@ -17,7 +17,8 @@ import {
 
 import { 
   AlertTicker, DrillDownModal, NavItem, 
-  StatItem, KPICard, MetricType, CustomerData 
+  StatItem, KPICard, MetricType, CustomerData,
+  DashboardMetrics, ExecutiveMetrics 
 } from '../components/DashboardComponents';
 import { ExecutiveDashboard } from '../components/ExecutiveDashboard';
 import OperationDashboard from '../components/OperationDashboard';
@@ -29,8 +30,9 @@ import {
   RetentionROIView
 } from '../components/DashboardModules';
 import CampaignManager from '../components/CampaignManager';
-import IdentityBaseView from '../components/IdentityBaseView';
 import BIReportView from '../components/BIReportView';
+import { RiskWidget, PerformanceChart } from '../components/RetentionInsights';
+import IdentityBaseView from '../components/IdentityBaseView';
 import { API_BASE_URL } from '../lib/config';
 
 
@@ -42,6 +44,9 @@ interface Insight {
   name: string;
   email: string;
   churn_probability: number;
+  action_type?: string;
+  campaign_type?: string;
+  priority_score?: number;
   uplift_score: number;
   persuadability_score: number;
   geography_risk_score: number;
@@ -53,35 +58,9 @@ interface Insight {
   neural_analysis: string;
 }
 
-interface DashboardMetrics {
-  total_customers: number;
-  high_risk_customers: number;
-  avg_churn_prob: number;
-  revenue_at_risk: number;
-  persuadables: number;
-  nrr?: number;
-  monthly_churn?: number;
-  annual_churn?: number;
-  avg_ltv?: number;
-}
+// DashboardMetrics is now imported from ../components/DashboardComponents
 
-interface ExecutiveMetrics {
-  metrics: {
-    nrr: number;
-    monthly_churn: number;
-    annual_churn: number;
-    avg_ltv: number;
-    total_ltv: number;
-    portfolio_revenue: number;
-    revenue_at_risk: number;
-    expected_roi: number;
-    recovery_potential: number;
-  };
-  trajectories: {
-    churn: number[];
-    ltv: number[];
-  };
-}
+// ExecutiveMetrics is now imported from ../components/DashboardComponents
 interface ModelStats {
   roc_auc: number;
   precision: number;
@@ -112,10 +91,27 @@ export default function Dashboard() {
     window.location.href = '/login';
   }
 
-  const fetchDrillDown = async (type: MetricType) => {
+  const runDecisionEngine = async () => {
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/customers/execute`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const json = await res.json();
+      if (json.success) {
+        alert("Retention Decision Engine triggered successfully!");
+        loadInitialData();
+      }
+    } catch (err) {
+      console.error("RDE trigger failed", err);
+    }
+  };
+
+  const fetchDrillDown = async (type: MetricType, page: number = 1, PAGE_SIZE: number = 20) => {
     const token = localStorage.getItem('token');
     const apiBase = API_BASE_URL;
-    let endpoint = '/api/v1/customers/';
+    let endpoint = `/api/v1/customers/?limit=${PAGE_SIZE}&skip=${(page - 1) * PAGE_SIZE}`;
     let title = 'Global Data Cluster';
 
     if (type === 'high_risk') {
@@ -167,11 +163,6 @@ export default function Dashboard() {
 
     if (role === 'super_admin') {
       window.location.href = '/super-admin'
-      return
-    }
-
-    if (role === 'admin') {
-      window.location.href = '/admin'
       return
     }
 
@@ -383,11 +374,18 @@ export default function Dashboard() {
         <div className="w-full">
           {activeTab === 'dashboard' ? (
             viewMode === 'operation' ? (
+              <>
                 <OperationDashboard 
                   metrics={metrics} 
                   onDrillDown={fetchDrillDown} 
+                  onRunDecisionEngine={runDecisionEngine}
                   insights={insights}
                 />
+                <div className="px-10 grid grid-cols-1 lg:grid-cols-2 gap-8 mb-20 animate-in slide-in-from-bottom-10 duration-700">
+                    <RiskWidget />
+                    <PerformanceChart />
+                </div>
+              </>
             ) : (
               <ExecutiveDashboard 
                 metrics={metrics} 
@@ -434,7 +432,7 @@ export default function Dashboard() {
                   {alerts.length === 0 ? (
                     <p className="text-slate-500 font-bold uppercase tracking-widest text-xs p-10 text-center glass-card rounded-2xl">No recent alerts detected in the neural stream.</p>
                   ) : (
-                    alerts.map((alert: any, i) => (
+                    alerts.map((alert: any, i: number) => (
                       <div key={i} className="p-6 bg-white/5 rounded-2xl border border-white/5 flex gap-6 items-start hover:border-blue-500/20 transition-all group">
                         <div className="text-[10px] font-black text-slate-500 font-mono mt-1">
                             {new Date(alert.created_at).toLocaleTimeString()}

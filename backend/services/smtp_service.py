@@ -11,10 +11,10 @@ class SMTPService:
     @staticmethod
     def get_config():
         return {
-            'host': os.getenv('SMTP_SERVER', 'smtp.gmail.com'),
-            'port': int(os.getenv('SMTP_PORT', 587)),
-            'user': os.getenv('SMTP_USER', ''),
-            'pass': os.getenv('SMTP_PASS', ''),
+            'host': str(os.getenv('SMTP_SERVER', 'smtp.gmail.com')),
+            'port': int(os.getenv('SMTP_PORT', '587')),
+            'user': str(os.getenv('SMTP_USER', '')),
+            'pass': str(os.getenv('SMTP_PASS', '')),
             'use_tls': True
         }
 
@@ -29,14 +29,14 @@ class SMTPService:
         failed_count = 0
         
         try:
-            server = smtplib.SMTP(config['host'], config['port'])
+            server = smtplib.SMTP(str(config['host']), int(config['port']))
             if config['use_tls']:
                 server.starttls()
-            server.login(config['user'], config['pass'])
+            server.login(str(config['user']), str(config['pass']))
 
             for customer in customers:
                 try:
-                    msg = SMTPService.create_message(customer, tier, config['user'])
+                    msg = SMTPService.create_message(customer, tier, str(config['user']))
                     server.send_message(msg)
                     sent_count += 1
                     
@@ -71,7 +71,7 @@ class SMTPService:
 
         # Templates based on tier
         templates = {
-            "High": f"Hi {customer.name},\n\We've noticed some changes in your account activity. As a valued customer, we'd like to offer you a personalized 30% discount on your next 3 months to ensure you continue to get the best value from our service.\n\nRecommended Action: Schedule a support call.",
+            "High": f"Hi {customer.name},\nWe've noticed some changes in your account activity. As a valued customer, we'd like to offer you a personalized 30% discount on your next 3 months to ensure you continue to get the best value from our service.\n\nRecommended Action: Schedule a support call.",
             "Medium": f"Hi {customer.name},\n\nWe'd love to help you get more out of your account. We've unlocked a special loyalty upgrade for you!\n\nRecommended Action: Check out your new features.",
             "Low": f"Hi {customer.name},\n\nThank you for being a loyal customer! We've added some new resources to your dashboard to help you scale.\n\nRecommended Action: View latest resources."
         }

@@ -3,16 +3,16 @@
 import React, { useState, useEffect } from 'react'
 import { Users, AlertCircle, ChevronRight, Search, Filter } from 'lucide-react'
 import { API_BASE_URL } from '../lib/config'
-import { MetricType } from './DashboardComponents'
+import { MetricType, DashboardMetrics, CustomerData } from './DashboardComponents'
 
 interface IdentityBaseViewProps {
-  insights: any[]
-  metrics: any
+  insights: CustomerData[]
+  metrics: DashboardMetrics | null
   onDrillDown: (type: MetricType) => void
 }
 
 export default function IdentityBaseView({ insights, metrics, onDrillDown }: IdentityBaseViewProps) {
-  const [customers, setCustomers] = useState<any[]>([])
+  const [customers, setCustomers] = useState<CustomerData[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'high_risk' | 'persuadable'>('all')
@@ -24,7 +24,7 @@ export default function IdentityBaseView({ insights, metrics, onDrillDown }: Ide
     setLoading(true)
     try {
       const token = localStorage.getItem('token')
-      let endpoint = `/api/v1/customers/?limit=${PAGE_SIZE}&offset=${(page - 1) * PAGE_SIZE}`
+      let endpoint = `/api/v1/customers/?limit=${PAGE_SIZE}&skip=${(page - 1) * PAGE_SIZE}`
       if (filter === 'high_risk') endpoint = `/api/v1/customers/high-risk`
       if (filter === 'persuadable') endpoint = `/api/v1/customers/uplift-insights`
 
@@ -111,20 +111,24 @@ export default function IdentityBaseView({ insights, metrics, onDrillDown }: Ide
           <thead className="text-[10px] uppercase bg-white/5 text-slate-400 sticky top-0 z-10 backdrop-blur-md">
             <tr>
               <th className="px-8 py-5 tracking-widest font-black">Identity</th>
-              <th className="px-8 py-5 tracking-widest font-black">Channel</th>
-              <th className="px-8 py-5 text-center tracking-widest font-black">Churn Risk</th>
-              <th className="px-8 py-5 text-center tracking-widest font-black">Uplift</th>
+              <th className="px-8 py-5 tracking-widest font-black text-center">Gender</th>
+              <th className="px-8 py-5 tracking-widest font-black">Plan</th>
+              <th className="px-8 py-5 tracking-widest font-black">Action</th>
+              <th className="px-8 py-5 tracking-widest font-black">Campaign</th>
+              <th className="px-8 py-5 text-center tracking-widest font-black">Risk</th>
+              <th className="px-8 py-5 text-center tracking-widest font-black">Last Act.</th>
+              <th className="px-8 py-5 text-center tracking-widest font-black">Priority</th>
               <th className="px-8 py-5 text-right tracking-widest font-black">Revenue</th>
               <th className="px-8 py-5"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
             {loading ? (
-              <tr><td colSpan={6} className="py-20 text-center">
+              <tr><td colSpan={9} className="py-20 text-center">
                 <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto" />
               </td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={6} className="py-20 text-center text-slate-500 font-bold uppercase tracking-widest text-xs">
+              <tr><td colSpan={9} className="py-20 text-center text-slate-500 font-bold uppercase tracking-widest text-xs">
                 No identities found.
               </td></tr>
             ) : filtered.map((c, i) => (
@@ -135,25 +139,50 @@ export default function IdentityBaseView({ insights, metrics, onDrillDown }: Ide
                       {c.name?.charAt(0)}
                     </div>
                     <div>
-                      <p className="font-bold text-white uppercase tracking-tighter text-xs">{c.customer_id || `ID_${c.id}`}</p>
-                      <p className="text-[10px] text-slate-500 font-bold">{c.name}</p>
-                      <p className="text-[9px] text-slate-600 italic">{c.email}</p>
+                      <p className="font-extrabold text-white uppercase tracking-tighter text-[11px]">
+                        {c.name && c.name.length < 30 && !c.name.includes('-') ? c.name : c.external_customer_id?.split('-')[0] || `ID_${c.id}`}
+                      </p>
+                      <p className="text-[9px] text-slate-500 font-bold uppercase truncate max-w-[150px]">
+                        {c.name && c.name.includes('-') ? 'Neural Node' : c.email || 'No Contact'}
+                      </p>
                     </div>
                   </div>
                 </td>
+                <td className="px-8 py-5 text-center">
+                  <span className={`text-[9px] font-black uppercase ${!c.gender || c.gender === 'Unknown' ? 'text-slate-600' : 'text-slate-400'}`}>
+                    {!c.gender || c.gender === 'Unknown' ? 'Not Disclosed' : c.gender}
+                  </span>
+                </td>
                 <td className="px-8 py-5">
-                  <span className="px-2 py-1 bg-white/5 rounded text-[10px] font-bold text-slate-400 border border-white/10 uppercase">
-                    {c.communication_channel || 'Email'}
+                  <span className="text-[10px] font-black text-blue-300 uppercase tracking-widest">
+                    {c.subscription_type || 'Standard'}
+                  </span>
+                </td>
+                <td className="px-8 py-5">
+                  <span className={`px-2 py-1 rounded text-[10px] font-bold border uppercase ${
+                    c.action_type === 'CALL' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 
+                    c.action_type === 'EMAIL' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 
+                    'bg-white/5 text-slate-400 border-white/10'
+                  }`}>
+                    {c.action_type || 'PENDING'}
+                  </span>
+                </td>
+                <td className="px-8 py-5">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">
+                    {c.campaign_type?.replace('_', ' ') || 'NONE'}
                   </span>
                 </td>
                 <td className="px-8 py-5 text-center">
                   <div className="inline-flex items-center gap-2">
-                    <div className={`w-1.5 h-1.5 rounded-full ${(c.churn_probability || 0) > 0.6 ? 'bg-rose-500' : 'bg-emerald-500'}`} />
-                    <span className="font-black text-white">{((c.churn_probability || 0) * 100).toFixed(0)}%</span>
+                    <div className={`w-1.5 h-1.5 rounded-full ${(c.churn_risk || 0) > 60 ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+                    <span className="font-black text-white">{((c.churn_risk || 0)).toFixed(0)}%</span>
                   </div>
                 </td>
                 <td className="px-8 py-5 text-center">
-                  <span className="font-black text-emerald-400">+{((c.uplift_score || 0) * 100).toFixed(1)}%</span>
+                  <span className="text-[10px] font-black text-slate-400">{c.last_active_days || 0}d</span>
+                </td>
+                <td className="px-8 py-5 text-center">
+                  <span className="font-black text-blue-400">{(c.priority_score || 0).toFixed(0)}</span>
                 </td>
                 <td className="px-8 py-5 text-right font-black text-white">
                   ${(c.revenue || 0).toLocaleString()}

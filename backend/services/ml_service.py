@@ -19,16 +19,19 @@ class MLService:
             'name': ['name', 'full_name', 'client', 'first_name', 'surname', 'account_name', 'customer_name'], 
             'email': ['email', 'mail', 'address', 'contact_point', 'electronic_mail'],
             'gender': ['gender', 'sex', 'male', 'female'],
-            'revenue': ['charges', 'amount', 'revenue', 'spend', 'price', 'billing', 'totalcharges', 'monthlycharges', 'mrr', 'arr', 'sales', 'balance', 'value'],
-            'usage': ['tenure', 'months', 'usage', 'activity', 'engagement', 'score', 'points', 'seniority', 'age', 'duration', 'visits', 'logins'],
-            'transactions': ['trans', 'count', 'orders', 'freq', 'services', 'calls', 'events', 'purchases', 'interactions', 'shipments'],
+            'revenue': ['monthly_fee', 'charges', 'amount', 'revenue', 'spend', 'price', 'billing', 'totalcharges', 'monthlycharges', 'mrr', 'arr', 'sales', 'balance', 'value', 'fee'],
+            'usage': ['watch_hours', 'stream_time', 'usage', 'activity', 'engagement', 'score', 'points', 'duration', 'visits', 'logins', 'hours'],
+            'transactions': ['number_of_profiles', 'trans', 'count', 'orders', 'freq', 'services', 'calls', 'events', 'purchases', 'interactions', 'shipments'],
             'churn': ['churn', 'label', 'target', 'left', 'attrition', 'status', 'exited', 'stopped', 'churned', 'inactive'],
             'region': ['region', 'state', 'city', 'country', 'location', 'geo', 'area', 'zip', 'territory', 'branch'],
-            'channel': ['channel', 'communication', 'contact', 'media', 'medium', 'method', 'touchpoint'],
-            'engagement_score': ['engagement_score', 'interaction_score', 'usage_frequency', 'activity_index'],
+            'channel': ['payment_method', 'channel', 'communication', 'contact', 'media', 'medium', 'method', 'touchpoint'],
+            'engagement_score': ['avg_watch_time', 'engagement_score', 'interaction_score', 'usage_frequency', 'activity_index'],
             'satisfaction': ['satisfaction', 'nps', 'rating', 'feedback', 'review', 'csat'],
             'support_tickets': ['ticket', 'support', 'issue', 'complaint', 'incident', 'case'],
-            'tenure': ['tenure', 'months', 'seniority', 'age', 'experience', 'membership_duration']
+            'tenure': ['tenure', 'months', 'seniority', 'experience', 'membership_duration'],
+            'subscription_type': ['subscription', 'type', 'plan', 'tier', 'membership_type'],
+            'last_active_days': ['last_login_days', 'last_active', 'login_days', 'inactive_days'],
+            'age': ['age', 'user_age', 'birth_year']
         }
         
         for key, search_words in keywords.items():
@@ -97,7 +100,10 @@ class MLService:
 
         X = df[available_features].copy()
         for col in X.columns:
-            X[col] = pd.to_numeric(X[col], errors='coerce').fillna(0)
+            if X[col].dtype == 'object':
+                X[col] = X[col].astype('category').cat.codes
+            else:
+                X[col] = pd.to_numeric(X[col], errors='coerce').fillna(0)
             
         if 'churn' in mapping:
             target_series = df[mapping['churn']].astype(str).str.lower()
@@ -105,6 +111,7 @@ class MLService:
         else:
             # Synthetic target if missing
             if not X.empty:
+                # Use a mix of features for synthetic target
                 eng = (X.iloc[:, 0] * 0.4 + X.iloc[:, 1] * 0.6)
                 y = (eng < eng.quantile(0.2)).astype(int).values
             else:
@@ -135,12 +142,17 @@ class MLService:
         mapping = MLService.identify_columns(df)
         
         # Map primary columns
-        columns_to_map = ['revenue', 'usage', 'transactions', 'tenure', 'engagement_score', 'satisfaction', 'support_tickets']
+        columns_to_map = ['revenue', 'usage', 'transactions', 'tenure', 'engagement_score', 'satisfaction', 'support_tickets', 'last_active_days']
         for col in columns_to_map:
             if mapping.get(col):
                 df[col] = pd.to_numeric(df[mapping[col]], errors='coerce').fillna(0)
             elif col not in df.columns:
                 df[col] = 0.0
+                
+        if mapping.get('subscription_type'):
+            df['subscription_type'] = df[mapping['subscription_type']].astype(str)
+        else:
+            df['subscription_type'] = 'Standard'
 
         # Feature Engineering
         df['usage_frequency'] = df['transactions'] / df['usage'].replace(0, 1)
@@ -172,13 +184,27 @@ class MLService:
         """
         if df.empty: return df, {}
         
+        mapping = MLService.identify_columns(df)
         df = MLService.preprocess_data(df)
 
         try:
-            metrics, model, features = MLService.train_model(df)
-            X = df[features].copy()
+            # Use all identifiable features for training
+            features = ['revenue', 'usage', 'transactions', 'tenure', 'engagement_score', 'satisfaction', 'support_tickets', 'last_active_days', 'age']
+            available_features = [f for f in features if f in df.columns or mapping.get(f) in df.columns]
+            
+            # Add categorical features if identifiable
+            categories = ['gender', 'subscription_type', 'region', 'device', 'payment_method']
+            for cat in categories:
+                if mapping.get(cat) in df.columns:
+                    available_features.append(mapping[cat])
+
+            metrics, model, final_features = MLService.train_model(df)
+            X = df[final_features].copy()
             for col in X.columns:
-                X[col] = pd.to_numeric(X[col], errors='coerce').fillna(0)
+                if X[col].dtype == 'object':
+                    X[col] = X[col].astype('category').cat.codes
+                else:
+                    X[col] = pd.to_numeric(X[col], errors='coerce').fillna(0)
             
             # Predict Proba
             probs = model.predict_proba(X)
@@ -202,7 +228,6 @@ class MLService:
             df['churn_probability'] = df['churn_probability'] * 100
             df['retention_probability'] = df['retention_probability'] * 100
             
-            mapping = MLService.identify_columns(df)
             if mapping.get('channel'): df['communication_channel'] = df[mapping['channel']]
             else: df['communication_channel'] = 'Email'
 

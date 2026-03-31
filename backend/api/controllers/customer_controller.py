@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import func
-from models.domain import Customer, ChurnScore, UpliftScore, RevenueData, Dataset
+from sqlalchemy import func, Integer
+from sqlalchemy import text
+from models.domain import Customer, ChurnScore, UpliftScore, RevenueData, Dataset, RetentionAction, RetentionFeedback
 from models.campaign import Campaign
 from fastapi import HTTPException
 from typing import List, Optional
@@ -16,7 +17,8 @@ def get_dashboard_kpis(db: Session, company_id: int):
             "high_risk_customers": 0,
             "revenue_at_risk": 0.0,
             "persuadables": 0,
-            "avg_churn_prob": 0.0
+            "avg_churn_prob": 0.0,
+            "dataset_count": db.query(func.count(Dataset.id)).filter(Dataset.company_id == company_id).scalar() or 0
         }
     
     # Map view results to response
@@ -26,7 +28,8 @@ def get_dashboard_kpis(db: Session, company_id: int):
         "revenue_at_risk": float(result.revenue_at_risk or 0),
         "geography_risk": float(result.avg_geography_risk or 0),
         "persuadables": db.query(func.count(Customer.id)).filter(Customer.company_id == company_id, Customer.uplift_score > 0).scalar() or 0,
-        "avg_churn_prob": float(result.avg_churn_risk or 0)
+        "avg_churn_prob": float(result.avg_churn_risk or 0),
+        "dataset_count": db.query(func.count(Dataset.id)).filter(Dataset.company_id == company_id).scalar() or 0
     }
 
 def get_high_risk_drilldown(db: Session, company_id: int):
@@ -38,9 +41,14 @@ def get_high_risk_drilldown(db: Session, company_id: int):
         "name": c.name,
         "email": c.email,
         "gender": c.gender or "Unknown",
-        "churn_probability": c.churn_risk / 100.0 if c.churn_risk > 1 else c.churn_risk,
+        "churn_risk": c.churn_risk,
         "revenue": float(c.revenue or 0),
-        "communication_channel": c.communication_channel or "Email"
+        "subscription_type": c.subscription_type or "Standard",
+        "last_active_days": c.last_active_days or 0,
+        "communication_channel": c.communication_channel or "Email",
+        "action_type": c.retention_actions[0].action_type if c.retention_actions else "PENDING",
+        "campaign_type": c.retention_actions[0].campaign_type if c.retention_actions else "NONE",
+        "priority_score": c.retention_actions[0].priority_score if c.retention_actions else 0.0
     } for c in customers]
 
 def get_customers(db: Session, company_id: int, skip: int = 0, limit: int = 20, risk_filter: Optional[str] = None):
@@ -48,22 +56,60 @@ def get_customers(db: Session, company_id: int, skip: int = 0, limit: int = 20, 
     if risk_filter == "high": query = query.filter(Customer.churn_risk > 70)
     elif risk_filter == "medium": query = query.filter(Customer.churn_risk.between(40, 70))
     elif risk_filter == "low": query = query.filter(Customer.churn_risk < 40)
-    return {"total": query.count(), "items": query.offset(skip).limit(limit).all()}
+    
+    total = query.count()
+    items = query.offset(skip).limit(limit).all()
+    
+    return {
+        "total": total, 
+        "items": [{
+            "id": c.id,
+            "external_customer_id": c.external_customer_id,
+            "name": c.name,
+            "email": c.email,
+            "gender": c.gender or "Unknown",
+            "revenue": float(c.revenue or 0),
+            "subscription_type": c.subscription_type or "Standard",
+            "last_active_days": c.last_active_days or 0,
+            "engagement_score": c.engagement_score or 0.5,
+            "churn_risk": c.churn_risk,
+            "uplift_score": c.uplift_score,
+            "communication_channel": c.communication_channel,
+            "action_type": c.retention_actions[0].action_type if c.retention_actions else "PENDING",
+            "campaign_type": c.retention_actions[0].campaign_type if c.retention_actions else "NONE",
+            "priority_score": c.retention_actions[0].priority_score if c.retention_actions else 0.0
+        } for c in items]
+    }
 
 def get_uplift_insights(db: Session, company_id: int):
-    customers = db.query(Customer).filter(Customer.company_id == company_id, Customer.uplift_score > 0).order_by(Customer.uplift_score.desc()).limit(100).all()
-    return [{"name": c.name, "churn_probability": c.churn_risk, "uplift_score": c.uplift_score, "expected_roi": float(c.revenue or 0) * c.uplift_score * 0.2} for c in customers]
+    results = db.query(Customer, UpliftScore).join(UpliftScore).filter(Customer.company_id == company_id, Customer.uplift_score > 0).order_by(Customer.uplift_score.desc()).limit(100).all()
+    return [{
+        "id": c.id,
+        "external_customer_id": c.external_customer_id,
+        "name": c.name, 
+        "gender": c.gender or "Unknown",
+        "subscription_type": c.subscription_type or "Standard",
+        "churn_prob": float(c.churn_risk) / 100.0,
+        "churn_risk": c.churn_risk, 
+        "uplift_score": c.uplift_score, 
+        "revenue": float(c.revenue or 0),
+        "expected_roi": float(c.revenue or 0) * c.uplift_score * 0.2,
+        "ai_strategy": u.strategy
+    } for c, u in results]
 
 def get_revenue_risk_details(db: Session, company_id: int):
-    results = db.query(Customer, RevenueData).join(RevenueData).filter(Customer.company_id == company_id).order_by(RevenueData.risk_amount.desc()).limit(50).all()
+    # Join with RevenueData and optionally with UpliftScore for AI strategy
+    results = db.query(Customer, RevenueData, UpliftScore).outerjoin(RevenueData).outerjoin(UpliftScore).filter(Customer.company_id == company_id).order_by(func.coalesce(RevenueData.risk_amount, 0).desc()).limit(50).all()
     return [{
-        "name": c.name, 
+        "id": c.id,
         "external_customer_id": c.external_customer_id,
+        "name": c.name, 
         "gender": c.gender or "Unknown",
         "revenue": float(c.revenue or 0), 
-        "risk_amount": float(r.risk_amount or 0), 
-        "churn_probability": c.churn_risk / 100.0 if c.churn_risk > 1 else c.churn_risk
-    } for c, r in results]
+        "risk_amount": float(r.risk_amount or 0) if r else 0.0, 
+        "churn_risk": c.churn_risk,
+        "ai_insight": u.strategy if u else "N/A"
+    } for c, r, u in results]
 
 def get_datasets(db: Session, company_id: int):
     return db.query(Dataset).filter(Dataset.company_id == company_id).order_by(Dataset.created_at.desc()).all()
@@ -114,3 +160,33 @@ def get_campaign_timeline(db: Session, company_id: int):
         ]
         
     return timeline
+def get_top_priority_customers(db: Session, company_id: int, limit: int = 20):
+    customers = db.query(Customer).join(RetentionAction).filter(
+        Customer.company_id == company_id,
+        RetentionAction.priority_score > 0
+    ).order_by(RetentionAction.priority_score.desc()).limit(limit).all()
+    
+    return [{
+        "id": c.id,
+        "name": c.name,
+        "segment": c.segment or "MODERATE",
+        "priority_score": c.retention_actions[0].priority_score if c.retention_actions else 0,
+        "action_type": c.retention_actions[0].action_type if c.retention_actions else "PENDING",
+        "campaign_type": c.retention_actions[0].campaign_type if c.retention_actions else "NONE",
+        "channel": c.retention_actions[0].channel if c.retention_actions else "AUTO",
+        "churn_risk": c.churn_risk
+    } for c in customers]
+
+def get_campaign_analytics(db: Session, company_id: int):
+    # Aggregate feedback loop data
+    results = db.query(
+        RetentionFeedback.campaign_type,
+        func.count(RetentionFeedback.id).label("total"),
+        func.sum(func.cast(RetentionFeedback.success, Integer)).label("successes")
+    ).join(Customer).filter(Customer.company_id == company_id).group_by(RetentionFeedback.campaign_type).all()
+    
+    return [{
+        "campaign": r.campaign_type,
+        "success_rate": (float(r.successes) / r.total) if r.total > 0 else 0,
+        "total_actions": r.total
+    } for r in results]

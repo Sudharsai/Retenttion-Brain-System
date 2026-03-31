@@ -15,3 +15,4 @@ fastapi-cache2[redis]
 python-dotenv
 reportlab
 aiosmtplib
+google-generativeai

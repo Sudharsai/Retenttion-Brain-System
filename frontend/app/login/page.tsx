@@ -35,7 +35,7 @@ export default function Login() {
                 if (result.role === 'super_admin') {
                     window.location.href = '/super-admin'
                 } else if (result.role === 'admin') {
-                    window.location.href = '/admin'
+                    window.location.href = '/'
                 } else {
                     window.location.href = '/'
                 }

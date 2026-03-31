@@ -1,7 +1,6 @@
 import os
 from fastapi import FastAPI, UploadFile, File, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from database.session import init_db
 from database.session import init_db, SessionLocal
 from api.routes import auth_routes, customer_routes, analytics_routes, admin_routes, campaign_routes
 from celery import Celery
@@ -11,7 +10,11 @@ from models.domain import User
 
 load_dotenv()
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+REDIS_URL = os.getenv("REDIS_URL")
+
+# If REDIS_URL is not set, default to localhost for development
+if not REDIS_URL:
+    REDIS_URL = "redis://localhost:6379/0"
 
 app = FastAPI(title="Retention Brain API", description="AI SaaS for Customer Retention")
 

@@ -36,6 +36,7 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-rb_admin}:${POSTGRES_PASSWORD:-rb_password}@postgres:5432/${POSTGRES_DB:-retention_brain}
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET=${JWT_SECRET:-supersecretjwtkey}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
       - SMTP_SERVER=${SMTP_SERVER}
       - SMTP_PORT=${SMTP_PORT}
       - SMTP_USER=${SMTP_USER}
@@ -61,7 +62,12 @@ services:
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-rb_admin}:${POSTGRES_PASSWORD:-rb_password}@postgres:5432/${POSTGRES_DB:-retention_brain}
       - REDIS_URL=redis://redis:6379/0
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
       - TASK_ALWAYS_EAGER=false
+      - SMTP_SERVER=${SMTP_SERVER}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
     depends_on:
       - backend
       - redis

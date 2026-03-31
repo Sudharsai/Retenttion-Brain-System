@@ -14,6 +14,15 @@ if not os.getenv("RENDER"):
 # Prioritize platform provided DATABASE_URL (Render/Heroku/Railway)
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+# Safeguard for Render: Ignore local "postgres" hostname if it somehow leaked into the environment
+# Render internal hostnames for databases usually look like 'db-name:5432' or '...render.com'
+# We want to ignore specifically 'postgres' or 'localhost' which are common local defaults.
+if os.getenv("RENDER") and DATABASE_URL:
+    low_url = DATABASE_URL.lower()
+    if "@postgres" in low_url or "@localhost" in low_url or "@127.0.0.1" in low_url:
+        print(f"DEBUG: IGNORED local/internal DATABASE_URL containing local hostname on Render.")
+        DATABASE_URL = None
+
 # Debugging on Render (Masked)
 if os.getenv("RENDER"):
     if DATABASE_URL:
@@ -99,11 +108,13 @@ def init_db():
             try:
                 # Add columns if for some reason create_all missed them and schema.sql didn't run
                 # This is a fail-safe for the specific 'churn_risk' problem reported
-                cols = ["churn_risk", "uplift_score", "persuadability_score", "geography_risk_score", "retention_probability", "expected_recovery", "gender"]
+                cols = ["churn_risk", "uplift_score", "persuadability_score", "geography_risk_score", "retention_probability", "expected_recovery", "gender", "subscription_type", "last_active_days"]
                 for col in cols:
                     try:
-                        if col == "gender":
+                        if col in ["gender", "subscription_type"]:
                             conn.execute(text(f"ALTER TABLE customers ADD COLUMN IF NOT EXISTS {col} VARCHAR(50);"))
+                        elif col == "last_active_days":
+                            conn.execute(text(f"ALTER TABLE customers ADD COLUMN IF NOT EXISTS {col} INTEGER DEFAULT 0;"))
                         else:
                             conn.execute(text(f"ALTER TABLE customers ADD COLUMN IF NOT EXISTS {col} FLOAT DEFAULT 0.0;"))
                     except: pass

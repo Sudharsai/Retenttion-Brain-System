@@ -11,7 +11,7 @@ import {
   ArrowUpRight, ArrowDownRight, Briefcase, 
   BarChart3, PieChart as PieChartIcon, ChevronRight
 } from 'lucide-react'
-import { MetricType } from './DashboardComponents'
+import { MetricType, DashboardMetrics } from './DashboardComponents'
 
 // --- Mock Data for Executive View ---
 const churnTrendData = [
@@ -32,13 +32,7 @@ const roiData = [
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#f43f5e'];
 
-interface DashboardMetrics {
-  total_customers: number;
-  high_risk_customers: number;
-  avg_churn_prob: number;
-  revenue_at_risk: number;
-  persuadables: number;
-}
+// DashboardMetrics is now imported from ./DashboardComponents
 
 interface ExecutiveMetrics {
   metrics: {
@@ -194,7 +188,7 @@ export function ExecutiveDashboard({
                   contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff10', borderRadius: '16px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
                 />
                 <Bar dataKey="roi" radius={[0, 12, 12, 0]} barSize={40}>
-                  {channelRoi.map((entry: any, index: number) => (
+                  {channelRoi.map((entry: {name: string, roi: number, cost: number}, index: number) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} opacity={0.8} />
                   ))}
                 </Bar>

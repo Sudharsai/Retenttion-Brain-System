@@ -10,6 +10,7 @@ import {
   BarChart, Bar, ScatterChart, Scatter, ZAxis, Cell
 } from 'recharts'
 import { API_BASE_URL } from '../lib/config'
+import { CustomerData, DashboardMetrics } from './DashboardComponents'
 
 // --- Mock Data (Fallbacks) ---
 const churnDistribution = [
@@ -23,9 +24,9 @@ const churnDistribution = [
 // --- Modules ---
 
 export function ChurnForecastEngine() {
-  const [distribution, setDistribution] = React.useState<any[]>(churnDistribution)
-  const [highRiskCustomers, setHighRiskCustomers] = React.useState<any[]>([])
-  const [kpis, setKpis] = React.useState<any>(null)
+  const [distribution, setDistribution] = React.useState<Array<{range: string, count: number, color: string}>>(churnDistribution)
+  const [highRiskCustomers, setHighRiskCustomers] = React.useState<CustomerData[]>([])
+  const [kpis, setKpis] = React.useState<DashboardMetrics | null>(null)
   const [chartLoading, setChartLoading] = React.useState(true)
 
   React.useEffect(() => {
@@ -69,7 +70,7 @@ export function ChurnForecastEngine() {
     fetchData()
   }, [])
 
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: { active?: boolean, payload?: any[] }) => {
     if (active && payload?.length) {
       return (
         <div className="bg-[#0f172a] border border-white/10 rounded-xl p-3">
@@ -184,7 +185,14 @@ export function ChurnForecastEngine() {
 
 
 export function UpliftROIMatrix() {
-  const [roiData, setRoiData] = React.useState<any[]>([])
+  interface ROIData {
+    name: string;
+    roi: number;
+    uplift: number;
+    cost: number;
+    engagement: number;
+  }
+  const [roiData, setRoiData] = React.useState<ROIData[]>([])
   const [loading, setLoading] = React.useState(true)
   const [summary, setSummary] = React.useState({ total_roi: 0, top_channel: '', avg_uplift: 0 })
 
@@ -205,11 +213,11 @@ export function UpliftROIMatrix() {
             engagement: c.progress || 0,
           }))
           setRoiData(mapped)
-          const top = mapped.reduce((a: any, b: any) => a.roi > b.roi ? a : b, mapped[0])
+          const top = mapped.reduce((a: ROIData, b: ROIData) => a.roi > b.roi ? a : b, mapped[0])
           setSummary({
-            total_roi: mapped.reduce((s: number, c: any) => s + c.roi, 0),
+            total_roi: mapped.reduce((s: number, c: ROIData) => s + c.roi, 0),
             top_channel: top?.name || '—',
-            avg_uplift: mapped.reduce((s: number, c: any) => s + c.uplift, 0) / mapped.length
+            avg_uplift: mapped.reduce((s: number, c: ROIData) => s + c.uplift, 0) / mapped.length
           })
         }
       } catch (err) {
@@ -245,9 +253,16 @@ export function UpliftROIMatrix() {
             <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
           </div>
         ) : roiData.length === 0 ? (
-          <div className="h-[350px] flex flex-col items-center justify-center text-slate-500">
-            <p className="text-xs font-black uppercase tracking-widest">No campaign data available.</p>
-            <p className="text-[10px] mt-2 text-slate-600">Initialize campaigns in Campaign Control Base first.</p>
+          <div className="h-[350px] flex flex-col items-center justify-center text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+              <AlertCircle className="w-6 h-6 text-blue-400" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-black text-white uppercase tracking-widest">Awaiting Neural Insights</p>
+              <p className="text-[10px] text-slate-500 font-bold max-w-[250px]">
+                No campaign performance data detected. Initialize a campaign or run the seeding module to view ROI metrics.
+              </p>
+            </div>
           </div>
         ) : (
           <div className="h-[350px] w-full">
@@ -274,8 +289,8 @@ export function UpliftROIMatrix() {
   )
 }
 
-export function RetentionROIView({ metrics }: { metrics: any }) {
-  const [roiStats, setRoiStats] = React.useState<any>(null)
+export function RetentionROIView({ metrics }: { metrics: DashboardMetrics | null }) {
+  const [roiStats, setRoiStats] = React.useState<DashboardMetrics | null>(null)
   const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {

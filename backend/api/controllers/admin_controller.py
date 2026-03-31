@@ -8,7 +8,7 @@ from typing import Optional
 
 class CompanyCreate(BaseModel):
     name: str
-    domain: str = None
+    domain: Optional[str] = None
 
 class UserCreate(BaseModel):
     username: str
